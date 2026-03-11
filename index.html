@@ -149,7 +149,10 @@ function simulateLiquidation(params, atYear) {
   const initUnrealised = params.investmentMarketValue - params.investmentBookValue;
   let bookNetAssets = params.totalAssets - params.totalLiabilities;
   let unrealised = initUnrealised;
+  let distributableRemaining = params.distributableEquity;
   let totalCorpTax = 0;
+  let totalDividendsPaid = 0;
+  let totalDividendTax = 0;
   for (let y = 1; y <= atYear; y++) {
     const realNA = bookNetAssets + unrealised;
     const investmentIncome = realNA * params.investmentReturnRate;
@@ -160,7 +163,19 @@ function simulateLiquidation(params, atYear) {
     const corpTax = taxableIncome * 0.20;
     bookNetAssets += realisedIncome - expenses - corpTax;
     unrealised += unrealisedIncome;
+    distributableRemaining += (realisedIncome - expenses - corpTax);
     totalCorpTax += corpTax;
+    // Pay annual dividends (same logic as hybrid)
+    const realNANow = bookNetAssets + unrealised;
+    const maxDivCompany = Math.min(Math.max(0, distributableRemaining), Math.max(0, bookNetAssets));
+    const maxDiv = maxDivCompany * params.shareholderOwnership;
+    const div = Math.min(params.annualDividend, maxDiv);
+    const totalCompanyDiv = div / params.shareholderOwnership;
+    const divResult = classifyDividend(div, realNANow * params.shareholderOwnership, params.otherEarnedIncome, params.otherCapitalIncome);
+    bookNetAssets -= totalCompanyDiv;
+    distributableRemaining -= totalCompanyDiv;
+    totalDividendsPaid += div;
+    totalDividendTax += divResult.totalTax;
   }
   // On liquidation: unrealised gains are realised → company pays 20% corp tax
   const corpTaxOnUnrealised = Math.max(0, unrealised) * 0.20;
@@ -176,7 +191,7 @@ function simulateLiquidation(params, atYear) {
   const usePresumptive = gainPresumptive < gainActual;
   const selectedGain = usePresumptive ? gainPresumptive : gainActual;
   const tax = capitalIncomeTax(selectedGain + params.otherCapitalIncome) - capitalIncomeTax(params.otherCapitalIncome);
-  return { year: atYear, netAssetsAtLiquidation, shareholderDistribution, actualCost, presumptiveCost, gainActual, gainPresumptive, usePresumptive, selectedGain, tax, totalCorpTax: totalCorpTax * params.shareholderOwnership, corpTaxOnUnrealised: corpTaxOnUnrealised * params.shareholderOwnership, netReceived: shareholderDistribution - tax, effectiveRate: shareholderDistribution > 0 ? tax / shareholderDistribution : 0 };
+  return { year: atYear, netAssetsAtLiquidation, shareholderDistribution, actualCost, presumptiveCost, gainActual, gainPresumptive, usePresumptive, selectedGain, tax, totalCorpTax: totalCorpTax * params.shareholderOwnership, corpTaxOnUnrealised: corpTaxOnUnrealised * params.shareholderOwnership, totalDividendsPaid, totalDividendTax, netReceived: shareholderDistribution - tax, totalNetReceived: (shareholderDistribution - tax) + (totalDividendsPaid - totalDividendTax), effectiveRate: (shareholderDistribution + totalDividendsPaid) > 0 ? (tax + totalDividendTax) / (shareholderDistribution + totalDividendsPaid) : 0 };
 }
 
 function simulateHybrid(params) {
@@ -414,9 +429,10 @@ function App() {
 
   // ---- TAB: LIQUIDATION ----
   function renderLiquidation() {
-    var headers = ["Vuosi","Nettovarat","Jako-osuus","Luovutusvoitto","Metodi","P\u00e4\u00e4omavero","Eff. %","Netto"];
+    var headers = ["Vuosi","Nettovarat","Osingot (kum.)","Jako-osuus","Luovutusvoitto","Metodi","Purkuvero","Eff. %","Netto yht."];
     return h("div", null,
       h("h2", { style: { fontSize: 16, color: "#e0f0ff", marginBottom: 16 } }, "Yhti\u00f6n purkaminen \u2014 eri ajankohtina"),
+      h("p", { style: { fontSize: 12, color: "#6a8a9a", marginBottom: 16 } }, "Osingot jaetaan vuosittain ennen purkua. Nettovarat pienenev\u00e4t osinkojen ja kulujen my\u00f6t\u00e4."),
       h("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 } },
         h(ResultCard, { label: "Hankintameno-olettama", value: params.ownershipYears >= 10 ? "40 %" : "20 %", sub: "Omistusaika: " + params.ownershipYears + "v" }),
         h(ResultCard, { label: "Todellinen hankintahinta", value: fmt(params.originalPurchasePrice) }),
@@ -434,12 +450,13 @@ function App() {
               return h("tr", { key: i, style: { borderBottom: "1px solid #121f2e" } },
                 h(TD, { style: { textAlign: "left" } }, r.year === 0 ? "Heti" : r.year + "v"),
                 h(TD, null, fmt(r.netAssetsAtLiquidation)),
+                h(TD, { style: { color: "#88aacc" } }, fmt(r.totalDividendsPaid)),
                 h(TD, null, fmt(r.shareholderDistribution)),
                 h(TD, null, fmt(r.selectedGain)),
                 h(TD, { style: { textAlign: "left", fontSize: 11, color: r.usePresumptive ? "#88cc44" : "#ccaa44" } }, r.usePresumptive ? "Olettama" : "Todellinen"),
                 h(TD, { style: { color: "#ff7744" } }, fmt(r.tax)),
                 h(TD, null, pct(r.effectiveRate)),
-                h(TD, { style: { fontWeight: 600, color: "#44ff88" } }, fmt(r.netReceived))
+                h(TD, { style: { fontWeight: 600, color: "#44ff88" } }, fmt(r.totalNetReceived))
               );
             })
           )
@@ -447,11 +464,12 @@ function App() {
       ),
       h("div", { style: { marginTop: 16, padding: "12px 16px", background: "#0f1923", border: "1px solid #1a2a3a", borderRadius: 8, fontSize: 12, lineHeight: 1.8 } },
         h("strong", { style: { color: "#4db8ff" } }, "Huomioita:"),
+        h("br"), "\u2022 Vuosittaiset osingot jaetaan ennen purkua \u2014 nettovarat pienenev\u00e4t vastaavasti",
         h("br"), "\u2022 Purkutilanteessa jako-osuus verotetaan osakkeiden luovutusvoittona (ei osinkona)",
         h("br"), "\u2022 Hankintameno-olettama 40 % kun omistusaika \u2265 10v, muuten 20 %",
-        h("br"), "\u2022 Verovelvollinen saa valita todellisen hankintahinnan ja olettaman v\u00e4lill\u00e4",
-        h("br"), "\u2022 Purkutilanteessa realisoitumaton arvonnousu realisoituu \u2192 yhti\u00f6 maksaa 20 % yhteist\u00f6veron",
-        h("br"), "\u2022 Nettovarat-sarake on arvonnousun realisoinnin ja yhteist\u00f6veron j\u00e4lkeen"
+        h("br"), "\u2022 Realisoitumaton arvonnousu realisoituu purkuhetkell\u00e4 \u2192 yhti\u00f6 maksaa 20 % yhteist\u00f6veron",
+        h("br"), "\u2022 Netto yht. = osingot netto + purkujako netto (kaikki verot huomioitu)",
+        h("br"), "\u2022 Eff. % = (osinkovero + purkuvero) / (osingot brutto + purkujako brutto)"
       )
     );
   }
