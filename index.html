@@ -286,6 +286,22 @@ function App() {
   const hybridResults = useMemo(function() { return simulateHybrid(params); }, [params]);
   const bestHybrid = useMemo(function() { return hybridResults.reduce(function(best, r) { return r.netReceived > best.netReceived ? r : best; }, hybridResults[0]); }, [hybridResults]);
 
+  // Find optimal liquidation year: when effective tax rate stops meaningfully decreasing
+  // Rule: if next year's rate drops less than 0.5 percentage points vs current, recommend current year
+  const optimalTaxYear = useMemo(function() {
+    for (var i = 0; i < hybridResults.length - 1; i++) {
+      var currentRate = hybridResults[i].effectiveRate;
+      var nextRate = hybridResults[i + 1].effectiveRate;
+      var dropPP = (currentRate - nextRate) * 100; // drop in percentage points
+      // If rate is no longer dropping meaningfully (less than 0.5pp improvement)
+      if (dropPP < 0.5) {
+        return hybridResults[i];
+      }
+    }
+    // If rate keeps dropping throughout, recommend last year
+    return hybridResults[hybridResults.length - 1];
+  }, [hybridResults]);
+
   const immediateLiq = liquidationResults[0];
   const lastDivYear = dividendSim[dividendSim.length - 1];
   const totalDivNet = lastDivYear ? lastDivYear.cumulativeDividend - (lastDivYear.cumulativeTax - lastDivYear.cumulativeCorpTax) : 0;
@@ -308,7 +324,8 @@ function App() {
       h("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 } },
         h(ResultCard, { label: "V\u00e4lit\u00f6n purkaminen", value: fmt(immediateLiq.netReceived), sub: "Vero: " + fmt(immediateLiq.tax) + " (" + pct(immediateLiq.effectiveRate) + ")", color: "#ff9944" }),
         h(ResultCard, { label: "Osinko " + params.simulationYears + "v (netto)", value: fmt(totalDivNet), sub: "+ yhti\u00f6n j\u00e4ljell\u00e4 olevat varat", color: "#44bbff" }),
-        h(ResultCard, { label: "Optimaalinen hybridi", value: fmt(bestHybrid.netReceived), sub: bestHybrid.dividendYears + "v osinkoa \u2192 purku | Vero: " + pct(bestHybrid.effectiveRate), highlight: true, color: "#44ff88" })
+        h(ResultCard, { label: "Vero-optimaalinen purku", value: optimalTaxYear.dividendYears === 0 ? "Heti" : optimalTaxYear.dividendYears + "v", sub: "Eff. vero: " + pct(optimalTaxYear.effectiveRate) + " | Netto: " + fmt(optimalTaxYear.netReceived), highlight: true, color: "#44ff88" }),
+        h(ResultCard, { label: "Paras nettosaanto", value: fmt(bestHybrid.netReceived), sub: bestHybrid.dividendYears + "v osinkoa \u2192 purku | Vero: " + pct(bestHybrid.effectiveRate), color: "#44ddff" })
       ),
       h("div", { style: { overflowX: "auto" } },
         h("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 13 } },
@@ -319,25 +336,31 @@ function App() {
           ),
           h("tbody", null,
             hybridResults.map(function(r, i) {
-              var isBest = r.dividendYears === bestHybrid.dividendYears;
-              return h("tr", { key: i, style: { borderBottom: "1px solid #121f2e", background: isBest ? "rgba(68,255,136,0.05)" : "transparent" } },
-                h(TD, { style: { textAlign: "left", color: isBest ? "#44ff88" : "#c0d0e0" } }, r.dividendYears === 0 ? "Heti" : r.dividendYears + "v", isBest ? " \u2605" : ""),
+              var isBestNet = r.dividendYears === bestHybrid.dividendYears;
+              var isTaxOpt = r.dividendYears === optimalTaxYear.dividendYears;
+              var highlight = isTaxOpt || isBestNet;
+              var rowColor = isTaxOpt ? "#44ff88" : (isBestNet ? "#44ddff" : "#c0d0e0");
+              return h("tr", { key: i, style: { borderBottom: "1px solid #121f2e", background: highlight ? (isTaxOpt ? "rgba(68,255,136,0.05)" : "rgba(68,221,255,0.04)") : "transparent" } },
+                h(TD, { style: { textAlign: "left", color: highlight ? rowColor : "#c0d0e0" } }, (r.dividendYears === 0 ? "Heti" : r.dividendYears + "v") + (isTaxOpt ? " \u2605" : "") + (isBestNet && !isTaxOpt ? " \u25c6" : "")),
                 h(TD, null, fmt(r.totalDividendsReceived - r.personalDividendTax)),
                 h(TD, null, fmt(r.liquidationDistribution)),
                 h(TD, { style: { color: "#ff7744" } }, fmt(r.personalDividendTax + r.liquidationTax + r.corporateTax)),
-                h(TD, { style: { fontWeight: 600, color: isBest ? "#44ff88" : "#e0f0ff" } }, fmt(r.netReceived)),
+                h(TD, { style: { fontWeight: 600, color: highlight ? rowColor : "#e0f0ff" } }, fmt(r.netReceived)),
                 h(TD, null, pct(r.effectiveRate)),
-                h("td", { style: { padding: "7px 6px" } }, h(MiniBar, { value: r.netReceived, max: bestHybrid.netReceived * 1.05, color: isBest ? "#44ff88" : "#2a5a8a" }))
+                h("td", { style: { padding: "7px 6px" } }, h(MiniBar, { value: r.netReceived, max: bestHybrid.netReceived * 1.05, color: isTaxOpt ? "#44ff88" : (isBestNet ? "#44ddff" : "#2a5a8a") }))
               );
             })
           )
         )
       ),
       h("div", { style: { marginTop: 20, padding: "14px 18px", background: "rgba(68,255,136,0.05)", border: "1px solid #1a4a2a", borderRadius: 8, fontSize: 13, lineHeight: 1.6 } },
-        h("strong", { style: { color: "#44ff88" } }, "Suositus: "),
-        bestHybrid.dividendYears === 0
-          ? "Annettuilla parametreilla yhti\u00f6n v\u00e4lit\u00f6n purkaminen on verotehokkainta. Nettotuotto: " + fmt(bestHybrid.netReceived) + "."
-          : "Optimaalinen strategia: jaa osinkoja " + bestHybrid.dividendYears + " vuotta (" + fmt(params.annualDividend) + "/v) ja purka yhti\u00f6 sen j\u00e4lkeen. Nettosaanto: " + fmt(bestHybrid.netReceived) + " (" + pct(bestHybrid.effectiveRate) + " efektiivinen veroprosentti)."
+        h("strong", { style: { color: "#44ff88" } }, "\u2605 Vero-optimaalinen purkuajankohta: "),
+        optimalTaxYear.dividendYears === 0
+          ? "Veroprosentti ei en\u00e4\u00e4 laske merkitt\u00e4v\u00e4sti \u2014 yhti\u00f6n voi purkaa heti. Eff. vero: " + pct(optimalTaxYear.effectiveRate) + ", netto: " + fmt(optimalTaxYear.netReceived) + "."
+          : "Jaa osinkoja " + optimalTaxYear.dividendYears + " vuotta (" + fmt(params.annualDividend) + "/v), sitten purka yhti\u00f6. Eff. veroprosentti: " + pct(optimalTaxYear.effectiveRate) + ", netto: " + fmt(optimalTaxYear.netReceived) + ". T\u00e4m\u00e4n j\u00e4lkeen veroprosentti ei en\u00e4\u00e4 laske merkitt\u00e4v\u00e4sti (<0,5 %-yks./v).",
+        bestHybrid.dividendYears !== optimalTaxYear.dividendYears
+          ? h("span", null, h("br"), h("strong", { style: { color: "#44ddff" } }, "\u25c6 Paras nettosaanto: "), bestHybrid.dividendYears + "v osinkoa \u2192 purku. Netto: " + fmt(bestHybrid.netReceived) + " (" + pct(bestHybrid.effectiveRate) + "). Lis\u00e4odotus tuottaa " + fmt(bestHybrid.netReceived - optimalTaxYear.netReceived) + " enemm\u00e4n.")
+          : null
       )
     );
   }
@@ -440,23 +463,25 @@ function App() {
       h("h2", { style: { fontSize: 16, color: "#e0f0ff", marginBottom: 16 } }, "Hybridistrategia \u2014 osingot + purku"),
       h("p", { style: { fontSize: 12, color: "#6a8a9a", marginBottom: 16 } }, "Maksa osinkoja N vuotta ja purka yhti\u00f6 sen j\u00e4lkeen."),
       h("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 } },
-        h(ResultCard, { label: "Paras nettotulos", value: fmt(bestHybrid.netReceived), sub: bestHybrid.dividendYears + "v osinkoa \u2192 purku", highlight: true, color: "#44ff88" }),
-        h(ResultCard, { label: "Paras efekt. veroprosentti", value: pct(bestHybrid.effectiveRate), sub: "henkil\u00f6kohtaiset verot / bruttotulo" })
+        h(ResultCard, { label: "Vero-optimaalinen purku", value: optimalTaxYear.dividendYears === 0 ? "Heti" : optimalTaxYear.dividendYears + "v", sub: "Eff. vero: " + pct(optimalTaxYear.effectiveRate) + " | Netto: " + fmt(optimalTaxYear.netReceived), highlight: true, color: "#44ff88" }),
+        h(ResultCard, { label: "Paras nettosaanto", value: fmt(bestHybrid.netReceived), sub: bestHybrid.dividendYears + "v osinkoa \u2192 purku | Vero: " + pct(bestHybrid.effectiveRate), color: "#44ddff" })
       ),
       // Bar chart
       h("div", { style: { marginBottom: 20 } },
         hybridResults.map(function(r, i) {
-          var isBest = r.dividendYears === bestHybrid.dividendYears;
+          var isTaxOpt = r.dividendYears === optimalTaxYear.dividendYears;
+          var isBestNet = r.dividendYears === bestHybrid.dividendYears;
           var barMax = bestHybrid.netReceived * 1.05;
           var divW = barMax > 0 ? ((r.totalDividendsReceived - r.personalDividendTax) / barMax * 100) : 0;
           var liqW = barMax > 0 ? ((r.liquidationDistribution - r.liquidationTax) / barMax * 100) : 0;
+          var labelColor = isTaxOpt ? "#44ff88" : (isBestNet ? "#44ddff" : "#6a8a9a");
           return h("div", { key: i, style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 3 } },
-            h("div", { style: { width: 40, fontSize: 11, color: isBest ? "#44ff88" : "#6a8a9a", textAlign: "right", flexShrink: 0 } }, r.dividendYears === 0 ? "Heti" : r.dividendYears + "v"),
+            h("div", { style: { width: 40, fontSize: 11, color: labelColor, textAlign: "right", flexShrink: 0 } }, r.dividendYears === 0 ? "Heti" : r.dividendYears + "v"),
             h("div", { style: { flex: 1, display: "flex", height: 18, borderRadius: 3, overflow: "hidden", background: "#121f2e" } },
               h("div", { style: { width: Math.max(0, divW) + "%", background: "#2a6a9a", transition: "width 0.3s" }, title: "Osingot netto: " + fmt(r.totalDividendsReceived - r.personalDividendTax) }),
-              h("div", { style: { width: Math.max(0, liqW) + "%", background: isBest ? "#2a8a4a" : "#1a5a3a", transition: "width 0.3s" }, title: "Purkujako netto: " + fmt(r.liquidationDistribution - r.liquidationTax) })
+              h("div", { style: { width: Math.max(0, liqW) + "%", background: isTaxOpt ? "#2a8a4a" : "#1a5a3a", transition: "width 0.3s" }, title: "Purkujako netto: " + fmt(r.liquidationDistribution - r.liquidationTax) })
             ),
-            h("div", { style: { width: 90, fontSize: 11, fontVariantNumeric: "tabular-nums", textAlign: "right", color: isBest ? "#44ff88" : "#8a9aaa", fontWeight: isBest ? 700 : 400 } }, fmt(r.netReceived))
+            h("div", { style: { width: 90, fontSize: 11, fontVariantNumeric: "tabular-nums", textAlign: "right", color: labelColor, fontWeight: (isTaxOpt || isBestNet) ? 700 : 400 } }, fmt(r.netReceived))
           );
         }),
         h("div", { style: { display: "flex", gap: 16, marginTop: 8, fontSize: 11, color: "#5a7a8a" } },
@@ -474,16 +499,19 @@ function App() {
           ),
           h("tbody", null,
             hybridResults.map(function(r, i) {
-              var isBest = r.dividendYears === bestHybrid.dividendYears;
-              return h("tr", { key: i, style: { borderBottom: "1px solid #121f2e", background: isBest ? "rgba(68,255,136,0.05)" : "transparent" } },
-                h(TD, { style: { textAlign: "left", color: isBest ? "#44ff88" : "#c0d0e0" } }, (r.dividendYears === 0 ? "Heti" : r.dividendYears + "v") + (isBest ? " \u2605" : "")),
+              var isTaxOpt = r.dividendYears === optimalTaxYear.dividendYears;
+              var isBestNet = r.dividendYears === bestHybrid.dividendYears;
+              var highlight = isTaxOpt || isBestNet;
+              var rowColor = isTaxOpt ? "#44ff88" : (isBestNet ? "#44ddff" : "#c0d0e0");
+              return h("tr", { key: i, style: { borderBottom: "1px solid #121f2e", background: highlight ? (isTaxOpt ? "rgba(68,255,136,0.05)" : "rgba(68,221,255,0.04)") : "transparent" } },
+                h(TD, { style: { textAlign: "left", color: highlight ? rowColor : "#c0d0e0" } }, (r.dividendYears === 0 ? "Heti" : r.dividendYears + "v") + (isTaxOpt ? " \u2605" : "") + (isBestNet && !isTaxOpt ? " \u25c6" : "")),
                 h(TD, null, fmt(r.totalDividendsReceived)),
                 h(TD, { style: { color: "#ff7744" } }, fmt(r.personalDividendTax)),
                 h(TD, { style: { color: "#ff9944" } }, fmt(r.corporateTax)),
                 h(TD, null, fmt(r.liquidationDistribution)),
                 h(TD, { style: { color: "#ff7744" } }, fmt(r.liquidationTax)),
                 h(TD, { style: { color: "#ff7744", fontWeight: 600 } }, fmt(r.personalDividendTax + r.liquidationTax + r.corporateTax)),
-                h(TD, { style: { fontWeight: 700, color: isBest ? "#44ff88" : "#e0f0ff" } }, fmt(r.netReceived)),
+                h(TD, { style: { fontWeight: 700, color: highlight ? rowColor : "#e0f0ff" } }, fmt(r.netReceived)),
                 h(TD, null, pct(r.effectiveRate))
               );
             })
