@@ -4,647 +4,580 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vero-optimoija — Listaamaton Oy</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #0a1520; font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace; }
-  input[type=number] { -moz-appearance: textfield; }
-  input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: #0a1520; }
-  ::-webkit-scrollbar-thumb { background: #1a3a5a; border-radius: 3px; }
+:root{--bg:#080e1a;--panel:#0d1526;--panel2:#111d33;--border:#1a2a42;--text:#d8e4f0;--muted:#6b84a3;--accent:#4daeff;--green:#2ddc6f;--orange:#f0a030;--red:#e85454;--cyan:#44e8d0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+.mono{font-family:'JetBrains Mono',monospace}
+input[type=number]{-moz-appearance:textfield;width:100%;padding:9px 11px;background:#0a1225;border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border .2s}
+input[type=number]:focus{border-color:var(--accent)}
+input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:#1a3050;border-radius:4px}
+.wrap{max-width:1600px;margin:0 auto;padding:16px}
+.header{background:linear-gradient(180deg,#0e1830,var(--bg));border-bottom:1px solid var(--border);padding:16px 20px 12px;position:sticky;top:0;z-index:100}
+.header h1{font-size:17px;font-weight:700;color:var(--accent);letter-spacing:.8px}
+.header p{font-size:12px;color:var(--muted);margin:3px 0 10px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tab{padding:7px 14px;background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:.3px;transition:all .15s}
+.tab.active{background:#142a4a;border-color:#1e4a7a;color:var(--accent)}
+.layout{display:flex;gap:0}
+.sidebar{width:340px;min-width:300px;max-height:calc(100vh - 90px);overflow-y:auto;padding:14px;border-right:1px solid var(--border);background:#0a1220;flex-shrink:0}
+.main{flex:1;padding:14px 18px;min-width:0;overflow-x:auto}
+.section{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.section h3{font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;display:flex;align-items:center;gap:7px}
+.field{margin-bottom:10px}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px;letter-spacing:.2px}
+.field .help{font-size:10px;color:#4a6080;margin-left:5px}
+.field .row{display:flex;align-items:center;gap:5px}
+.field .suffix{color:var(--muted);font-size:12px;white-space:nowrap}
+.cards{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px;flex:1 1 180px;min-width:150px}
+.card.highlight{background:linear-gradient(135deg,#0a2a1a,#0d2520);border-color:#1a5a3a}
+.card .k{font-size:11px;color:var(--muted);margin-bottom:3px;letter-spacing:.2px}
+.card .v{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums}
+.card .sub{font-size:10px;color:#4a7a6a;margin-top:2px}
+table{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
+th{padding:7px 8px;text-align:right;color:var(--accent);font-weight:600;font-size:10px;letter-spacing:.3px;white-space:nowrap;position:sticky;top:0;background:#0e192c;z-index:1}
+th:first-child{text-align:left}
+td{padding:6px 8px;text-align:right;border-bottom:1px solid #0e1a2a}
+td:first-child{text-align:left}
+.tbl-wrap{overflow:auto;max-height:500px;border:1px solid var(--border);border-radius:10px}
+.row-best{background:rgba(45,220,111,.05)}
+.row-best td:first-child{color:var(--green);font-weight:700}
+.row-maxnet{background:rgba(77,174,255,.04)}
+.row-maxnet td:first-child{color:var(--cyan);font-weight:700}
+.bar-row{display:flex;align-items:center;gap:7px;margin-bottom:2px}
+.bar-label{width:36px;font-size:11px;text-align:right;flex-shrink:0;color:var(--muted)}
+.bar-track{flex:1;height:16px;background:#0e1a2a;border-radius:3px;overflow:hidden;display:flex}
+.bar-seg{height:100%;transition:width .3s}
+.bar-val{width:80px;font-size:11px;text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums}
+.chart-svg{width:100%;height:260px;display:block}
+.legend{display:flex;gap:14px;font-size:11px;color:var(--muted);margin-top:6px;flex-wrap:wrap}
+.legend .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.note{margin-top:18px;padding:11px 14px;background:#0a0f1a;border:1px solid #141e2a;border-radius:8px;font-size:11px;color:#3e5570;line-height:1.5}
+.rec{margin-top:16px;padding:12px 16px;background:rgba(45,220,111,.04);border:1px solid #1a4a2a;border-radius:8px;font-size:13px;line-height:1.6}
+@media(max-width:1100px){.layout{flex-wrap:wrap}.sidebar{width:100%;max-height:none;border-right:none;border-bottom:1px solid var(--border)}}
 </style>
 </head>
 <body>
-<div id="root"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<div class="header">
+<h1>⚡ VERO-OPTIMOIJA v2</h1>
+<p>Listaamattoman osakeyhtiön purkaminen vs. osingonjako — vakuutuskuorimalli, 2 osakasta</p>
+<div class="tabs" id="tabs"></div>
+</div>
+
+<div class="layout">
+<div class="sidebar" id="sidebar"></div>
+<div class="main" id="main"></div>
+</div>
 
 <script>
-const { useState, useMemo, useCallback, createElement: h } = React;
+// ═══════════════════════════════════════════
+// CALCULATION ENGINE (from version 2, enhanced)
+// ═══════════════════════════════════════════
 
-const DEFAULTS = {
-  totalAssets: 1100000,
-  totalLiabilities: 100000,
-  distributableEquity: 900000,
-  investmentMarketValue: 1300000,
-  investmentBookValue: 1000000,
-  numberOfShares: 1000,
-  shareholderOwnership: 0.5,
-  originalPurchasePrice: 50000,
-  ownershipYears: 12,
-  otherEarnedIncome: 0,
-  otherCapitalIncome: 0,
-  annualDividend: 40000,
-  minAnnualDividend: 10000,
-  investmentReturnRate: 0.05,
-  inflationRate: 0.02,
-  companyExpenses: 2000,
-  simulationYears: 20,
-};
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
 
-// Unrealised gain = market value - book value of investments
-// Real net assets = balance sheet net assets + unrealised gain
-// Distributable equity caps maximum total dividends paid out
-function realNetAssets(params) {
-  return (params.totalAssets - params.totalLiabilities) + (params.investmentMarketValue - params.investmentBookValue);
-}
-function unrealisedGain(params) {
-  return params.investmentMarketValue - params.investmentBookValue;
-}
+function capitalTax(x){x=Math.max(0,x);return Math.min(x,30000)*0.30+Math.max(0,x-30000)*0.34}
+function incrCapitalTax(base,add){return Math.max(0,capitalTax(base+Math.max(0,add))-capitalTax(base))}
 
-function earnedIncomeTax(totalEarned) {
-  if (totalEarned <= 0) return 0;
-  const brackets = [
-    { limit: 20500, rate: 0 },
-    { limit: 30500, rate: 0.06 },
-    { limit: 50400, rate: 0.1725 },
-    { limit: 88200, rate: 0.2125 },
-    { limit: 150000, rate: 0.3125 },
-    { limit: Infinity, rate: 0.4375 },
-  ];
-  let tax = 0, prev = 0;
-  for (const b of brackets) {
-    if (totalEarned <= prev) break;
-    const taxable = Math.min(totalEarned, b.limit) - prev;
-    if (taxable > 0) tax += taxable * b.rate;
-    prev = b.limit;
+function earnedTaxSimple(total){
+  const brackets=[20500,31100,51600,88200,150000];
+  const rates=[0,0.06,0.1725,0.2125,0.3125,0.4375];
+  let tax=0,prev=0;
+  const levels=[...brackets,Infinity];
+  for(let i=0;i<levels.length;i++){
+    if(total>prev)tax+=Math.max(0,Math.min(total,levels[i])-prev)*rates[i];
+    prev=levels[i];if(total<=levels[i])break;
   }
-  const municipalRate = 0.075 + 0.015;
-  tax += totalEarned * municipalRate * (totalEarned > 20500 ? 1 : 0);
-  return tax;
+  if(total>20500)tax+=(total-20500)*0.086;
+  return Math.max(0,tax);
+}
+function incrEarnedTax(base,add){return Math.max(0,earnedTaxSimple(base+Math.max(0,add))-earnedTaxSimple(base))}
+
+// How much to withdraw from wrapper to get `needNet` cash after corp tax on realised gain
+function withdrawalForNet(needNet,mv,bv,corpRate){
+  if(needNet<=0)return{wd:0,gain:0,tax:0,ratio:mv>0?clamp((mv-bv)/mv,0,1):0};
+  if(mv<=0)return{wd:1e18,gain:0,tax:0,ratio:0};
+  const ratio=clamp((mv-bv)/mv,0,1);
+  const denom=1-corpRate*ratio;
+  if(denom<=0)return{wd:1e18,gain:0,tax:0,ratio};
+  const wd=needNet/denom;
+  const gain=wd*ratio;
+  return{wd,gain,tax:gain*corpRate,ratio};
 }
 
-function capitalIncomeTax(capitalIncome) {
-  if (capitalIncome <= 0) return 0;
-  if (capitalIncome <= 30000) return capitalIncome * 0.30;
-  return 30000 * 0.30 + (capitalIncome - 30000) * 0.34;
-}
-
-function classifyDividend(dividendPaid, netAssets, otherEarnedIncome, otherCapitalIncome) {
-  const capitalLimit = netAssets * 0.08;
-  let capitalDividend = Math.min(dividendPaid, capitalLimit);
-  let earnedDividend = Math.max(0, dividendPaid - capitalLimit);
-  let taxableCapital = 0;
-  if (capitalDividend <= 150000) {
-    taxableCapital = capitalDividend * 0.25;
-  } else {
-    taxableCapital = 150000 * 0.25 + (capitalDividend - 150000) * 0.85;
+// Binary search: max dividend company can pay given state
+function maxDividendPossible(mv,bv,distributable,liabilities,expenses,corpRate){
+  let lo=0,hi=Math.max(0,mv);
+  for(let i=0;i<60;i++){
+    const mid=(lo+hi)/2;
+    const need=mid+expenses;
+    const w=withdrawalForNet(need,mv,bv,corpRate);
+    const afterTaxGain=w.gain-w.tax;
+    const endDistrib=distributable+afterTaxGain-expenses-mid;
+    const endMv=mv-w.wd;
+    const endBv=mv>0?bv*(1-w.wd/mv):0;
+    const endEquity=endMv-liabilities;
+    const ok=isFinite(w.wd)&&w.wd<=mv+1e-6&&endDistrib>=-1e-6&&endBv>=-1e-6&&endEquity>=-1e-6;
+    if(ok)lo=mid;else hi=mid;
   }
-  const taxableEarned = earnedDividend * 0.75;
-  const capTax = capitalIncomeTax(taxableCapital + otherCapitalIncome) - capitalIncomeTax(otherCapitalIncome);
-  const earnTax = earnedIncomeTax(otherEarnedIncome + taxableEarned) - earnedIncomeTax(otherEarnedIncome);
-  return { capitalDividend, earnedDividend, taxableCapital, taxableEarned, capitalTax: capTax, earnedTax: earnTax, totalTax: capTax + earnTax };
+  return Math.max(0,lo);
 }
 
-// VAKUUTUSKUORI model:
-// All investment returns stay inside the wrapper (unrealised).
-// Nothing is realised automatically — only when cash is withdrawn.
-// Withdrawals happen for: (1) annual expenses, (2) dividend payments.
-// Each withdrawal realises a proportional share of the accumulated gain.
-// Company pays 20% corp tax on the realised gain portion.
-// After-tax realised profit increases distributable equity.
-//
-// State:
-//   wrapperValue: current market value inside the wrapper
-//   wrapperCostBasis: total cost basis inside the wrapper
-//   bookCash: cash outside wrapper (from realisations minus expenses/dividends/tax)
-//   distributable: distributable equity (grows with after-tax realised gains)
-
-function runYearSimulation(wrapperValue, wrapperCostBasis, bookCash, distributable, params) {
-  const realNAStart = wrapperValue + bookCash;
-
-  // 1. Investment return — all stays inside wrapper
-  const investmentReturn = wrapperValue * params.investmentReturnRate;
-  wrapperValue += investmentReturn;
-
-  // 2. Withdraw from wrapper to cover expenses + dividend
-  //    First determine dividend amount
-  const realNAAfterGrowth = wrapperValue + bookCash;
-  const maxDivShareholder = Math.max(0, realNAAfterGrowth * params.shareholderOwnership);
-  var dividend = Math.min(params.annualDividend, maxDivShareholder);
-  if (dividend < params.minAnnualDividend && maxDivShareholder >= params.minAnnualDividend) {
-    dividend = params.minAnnualDividend;
-  }
-  const totalCompanyDiv = dividend / params.shareholderOwnership;
-  const expenses = params.companyExpenses;
-
-  // Total cash needed from wrapper
-  const cashNeeded = Math.max(0, totalCompanyDiv + expenses - bookCash);
-
-  // Withdraw from wrapper
-  var realisedGain = 0;
-  var corpTax = 0;
-  var withdrawalAmount = 0;
-  if (cashNeeded > 0 && wrapperValue > 0) {
-    withdrawalAmount = Math.min(cashNeeded, wrapperValue);
-    // Gain ratio: what fraction of the withdrawal is profit?
-    const gainRatio = wrapperCostBasis < wrapperValue ? (wrapperValue - wrapperCostBasis) / wrapperValue : 0;
-    realisedGain = withdrawalAmount * gainRatio;
-    corpTax = realisedGain * 0.20;
-
-    // Update wrapper
-    const costBasisSold = withdrawalAmount * (wrapperCostBasis / wrapperValue);
-    wrapperValue -= withdrawalAmount;
-    wrapperCostBasis -= costBasisSold;
-
-    // Cash in: withdrawal minus corp tax on gain
-    bookCash += withdrawalAmount - corpTax;
-
-    // Realised profit increases distributable equity
-    distributable += Math.max(0, realisedGain - corpTax);
-  }
-
-  // 3. Pay expenses and dividend from cash
-  bookCash -= expenses;
-  bookCash -= totalCompanyDiv;
-  distributable -= totalCompanyDiv;
-
-  // 4. Classify dividend for shareholder tax (8% rule uses real net assets before dividend)
-  const divResult = classifyDividend(dividend, realNAAfterGrowth * params.shareholderOwnership, params.otherEarnedIncome, params.otherCapitalIncome);
-
-  return {
-    wrapperValue, wrapperCostBasis, bookCash, distributable,
-    realNAStart: realNAStart, realNAEnd: wrapperValue + bookCash,
-    investmentReturn, realisedGain, corpTax, withdrawalAmount,
-    dividend, divResult, expenses
-  };
+function dividendTaxForShareholder(shareDiv,ownership,netAssetsBefore,sh){
+  const capLimit=Math.max(0,netAssetsBefore*0.08)*ownership;
+  const capPortion=Math.min(shareDiv,capLimit);
+  const earnedPortion=Math.max(0,shareDiv-capLimit);
+  const capStd=Math.min(capPortion,150000);
+  const capHigh=Math.max(0,capPortion-150000);
+  const taxableCapital=capStd*0.25+capHigh*0.85;
+  const taxableEarned=earnedPortion*0.75;
+  const capTax=incrCapitalTax(sh.otherCapital,taxableCapital);
+  const earnedTax=incrEarnedTax(sh.otherEarned,taxableEarned);
+  return{capPortion,earnedPortion,taxableCapital,taxableEarned,capTax,earnedTax,totalTax:capTax+earnedTax};
 }
 
-function simulateDividendStrategy(params) {
-  const years = [];
-  // Initial state: wrapper has investments, cash outside is (totalAssets - totalLiabilities - investmentBookValue)
-  // but in practice book value of wrapper IS on the balance sheet at cost
-  let wrapperValue = params.investmentMarketValue;
-  let wrapperCostBasis = params.investmentBookValue;
-  let bookCash = (params.totalAssets - params.totalLiabilities) - params.investmentBookValue;
-  let distributable = params.distributableEquity;
-  let cumulativeTax = 0, cumulativeDividend = 0, cumulativeCorpTax = 0;
+function liquidationTaxForShareholder(distribution,extraCapitalAlready,sh,yearsElapsed){
+  const oy=sh.ownershipYearsNow+yearsElapsed;
+  const hmoRate=oy>=10?0.40:0.20;
+  const gainActual=Math.max(0,distribution-sh.acquisitionCost);
+  const gainHmo=Math.max(0,distribution-distribution*hmoRate);
+  const selectedGain=Math.min(gainActual,gainHmo);
+  const method=gainActual<=gainHmo?'Todellinen':'HMO '+Math.round(hmoRate*100)+'%';
+  const tax=capitalTax(sh.otherCapital+extraCapitalAlready+selectedGain)-capitalTax(sh.otherCapital+extraCapitalAlready);
+  return{ownershipYears:oy,hmoRate,gainActual,gainHmo,selectedGain,method,tax:Math.max(0,tax),net:distribution-Math.max(0,tax)};
+}
 
-  for (let y = 1; y <= params.simulationYears; y++) {
-    const r = runYearSimulation(wrapperValue, wrapperCostBasis, bookCash, distributable, params);
-    wrapperValue = r.wrapperValue; wrapperCostBasis = r.wrapperCostBasis;
-    bookCash = r.bookCash; distributable = r.distributable;
+// Full simulation for a given liquidation year
+function simulate(inputs,liqYear){
+  const cr=inputs.corpRate;
+  const state={mv:inputs.marketValue,bv:inputs.bookValue,distrib:inputs.distributable,liab:inputs.liabilities};
+  const yearly=[];
+  let totGrossDiv=0,totDivTax=0,totCorpTax=0,totExpenses=0;
+  let accCapTaxThisYear=[0,0]; // for liquidation year progression
 
-    cumulativeTax += r.divResult.totalTax + r.corpTax * params.shareholderOwnership;
-    cumulativeDividend += r.dividend;
-    cumulativeCorpTax += r.corpTax * params.shareholderOwnership;
+  for(let y=1;y<=liqYear;y++){
+    const startMv=state.mv;
+    state.mv*=(1+inputs.returnRate);
+    const netAssetsBefore=state.mv-state.liab;
+    const maxDiv=maxDividendPossible(state.mv,state.bv,state.distrib,state.liab,inputs.expenses,cr);
+    const actualDiv=Math.min(inputs.annualDiv,maxDiv);
+    const need=actualDiv+inputs.expenses;
+    const w=withdrawalForNet(need,state.mv,state.bv,cr);
+    const afterTaxGain=w.gain-w.tax;
+    const bvBefore=state.bv;
+    state.mv-=w.wd;
+    state.bv=startMv*(1+inputs.returnRate)>0?bvBefore*(1-w.wd/(startMv*(1+inputs.returnRate))):0;
+    state.distrib+=afterTaxGain-inputs.expenses-actualDiv;
 
-    years.push({
-      year: y, netAssetsStart: r.realNAStart, netAssetsEnd: r.realNAEnd,
-      wrapperValue: wrapperValue, bookCash: bookCash,
-      investmentIncome: r.investmentReturn, corpTax: r.corpTax,
-      realisedGain: r.realisedGain,
-      dividend: r.dividend,
-      capitalDividend: r.divResult.capitalDividend, earnedDividend: r.divResult.earnedDividend,
-      dividendTax: r.divResult.totalTax, capitalTax: r.divResult.capitalTax, earnedTax: r.divResult.earnedTax,
-      distributableRemaining: distributable,
-      cumulativeTax, cumulativeDividend, cumulativeCorpTax,
-      netReceived: r.dividend - r.divResult.totalTax,
-      cumulativeNetReceived: cumulativeDividend - cumulativeTax + cumulativeCorpTax
+    const shRows=inputs.shareholders.map((sh,idx)=>{
+      const sd=actualDiv*sh.ownership;
+      const t=dividendTaxForShareholder(sd,sh.ownership,netAssetsBefore,sh);
+      if(y===liqYear)accCapTaxThisYear[idx]=t.taxableCapital;
+      return{grossDiv:sd,...t};
+    });
+    const yearDivTax=shRows.reduce((s,r)=>s+r.totalTax,0);
+    totGrossDiv+=actualDiv;totDivTax+=yearDivTax;totCorpTax+=w.tax;totExpenses+=inputs.expenses;
+
+    yearly.push({
+      year:y,startMv,mvAfterReturn:startMv*(1+inputs.returnRate),
+      withdrawal:w.wd,realisedGain:w.gain,corpTax:w.tax,gainRatio:w.ratio,
+      expenses:inputs.expenses,actualDiv,dividendTax:yearDivTax,
+      endMv:state.mv,endBv:state.bv,endNetAssets:state.mv-state.liab,
+      distributable:state.distrib,shRows
     });
   }
-  return years;
-}
 
-function simulateLiquidation(params, atYear) {
-  let wrapperValue = params.investmentMarketValue;
-  let wrapperCostBasis = params.investmentBookValue;
-  let bookCash = (params.totalAssets - params.totalLiabilities) - params.investmentBookValue;
-  let distributable = params.distributableEquity;
-  let totalCorpTax = 0, totalDividendsPaid = 0, totalDividendTax = 0;
+  // Liquidation
+  const unrealised=Math.max(0,state.mv-state.bv);
+  const liqCorpTax=unrealised*cr;
+  totCorpTax+=liqCorpTax;
+  const liqPool=Math.max(0,state.mv-liqCorpTax-state.liab);
+  const shLiq=inputs.shareholders.map((sh,idx)=>{
+    const dist=liqPool*sh.ownership;
+    return{distribution:dist,...liquidationTaxForShareholder(dist,accCapTaxThisYear[idx],sh,liqYear)};
+  });
+  const liqShTax=shLiq.reduce((s,r)=>s+r.tax,0);
+  const totalNet=totGrossDiv+liqPool-totDivTax-liqShTax;
+  const effRate=(totGrossDiv+liqPool)>0?(totDivTax+liqShTax)/(totGrossDiv+liqPool):0;
+  const allInRate=(totGrossDiv+liqPool)>0?(totDivTax+liqShTax+totCorpTax)/(totGrossDiv+liqPool):0;
 
-  for (let y = 1; y <= atYear; y++) {
-    const r = runYearSimulation(wrapperValue, wrapperCostBasis, bookCash, distributable, params);
-    wrapperValue = r.wrapperValue; wrapperCostBasis = r.wrapperCostBasis;
-    bookCash = r.bookCash; distributable = r.distributable;
-    totalCorpTax += r.corpTax;
-    totalDividendsPaid += r.dividend;
-    totalDividendTax += r.divResult.totalTax;
-  }
-
-  // On liquidation: withdraw everything from wrapper, realise all remaining gains
-  const unrealisedInWrapper = Math.max(0, wrapperValue - wrapperCostBasis);
-  const corpTaxOnLiquidation = unrealisedInWrapper * 0.20;
-  totalCorpTax += corpTaxOnLiquidation;
-  const netAssetsAtLiquidation = wrapperValue + bookCash - corpTaxOnLiquidation;
-  const shareholderDistribution = netAssetsAtLiquidation * params.shareholderOwnership;
-  const actualCost = params.originalPurchasePrice;
-  const ownershipAtLiq = params.ownershipYears + atYear;
-  const presumptiveRate = ownershipAtLiq >= 10 ? 0.40 : 0.20;
-  const presumptiveCost = shareholderDistribution * presumptiveRate;
-  const gainActual = Math.max(0, shareholderDistribution - actualCost);
-  const gainPresumptive = Math.max(0, shareholderDistribution - presumptiveCost);
-  const usePresumptive = gainPresumptive < gainActual;
-  const selectedGain = usePresumptive ? gainPresumptive : gainActual;
-  const tax = capitalIncomeTax(selectedGain + params.otherCapitalIncome) - capitalIncomeTax(params.otherCapitalIncome);
-
-  return {
-    year: atYear, netAssetsAtLiquidation, shareholderDistribution,
-    actualCost, presumptiveCost, gainActual, gainPresumptive, usePresumptive, selectedGain,
-    tax, totalCorpTax: totalCorpTax * params.shareholderOwnership,
-    corpTaxOnLiquidation: corpTaxOnLiquidation * params.shareholderOwnership,
-    totalDividendsPaid, totalDividendTax,
-    netReceived: shareholderDistribution - tax,
-    totalNetReceived: (shareholderDistribution - tax) + (totalDividendsPaid - totalDividendTax),
-    effectiveRate: (shareholderDistribution + totalDividendsPaid) > 0 ? (tax + totalDividendTax) / (shareholderDistribution + totalDividendsPaid) : 0
+  return{
+    liqYear,yearly,
+    preLiqNetAssets:state.mv-state.liab,unrealised,liqCorpTax,liqPool,shLiq,
+    totGrossDiv,totDivTax,totCorpTax,totExpenses,liqShTax,
+    totalNet,effRate,allInRate
   };
 }
 
-function simulateHybrid(params) {
-  const results = [];
-  for (let liqYear = 0; liqYear <= params.simulationYears; liqYear++) {
-    let wrapperValue = params.investmentMarketValue;
-    let wrapperCostBasis = params.investmentBookValue;
-    let bookCash = (params.totalAssets - params.totalLiabilities) - params.investmentBookValue;
-    let distributable = params.distributableEquity;
-    let totalPersonalTax = 0, totalCorpTax = 0, totalDividendsReceived = 0;
-
-    for (let y = 1; y <= liqYear; y++) {
-      const r = runYearSimulation(wrapperValue, wrapperCostBasis, bookCash, distributable, params);
-      wrapperValue = r.wrapperValue; wrapperCostBasis = r.wrapperCostBasis;
-      bookCash = r.bookCash; distributable = r.distributable;
-      totalCorpTax += r.corpTax;
-      totalPersonalTax += r.divResult.totalTax;
-      totalDividendsReceived += r.dividend;
-    }
-
-    // Liquidation: realise all remaining wrapper gains
-    const unrealisedInWrapper = Math.max(0, wrapperValue - wrapperCostBasis);
-    const corpTaxOnLiquidation = unrealisedInWrapper * 0.20;
-    totalCorpTax += corpTaxOnLiquidation;
-    const netAssetsAtLiq = wrapperValue + bookCash - corpTaxOnLiquidation;
-    const distribution = netAssetsAtLiq * params.shareholderOwnership;
-    const ownershipAtLiq = params.ownershipYears + liqYear;
-    const presumptiveRate = ownershipAtLiq >= 10 ? 0.40 : 0.20;
-    const presumptiveCost = distribution * presumptiveRate;
-    const gainActual = Math.max(0, distribution - params.originalPurchasePrice);
-    const gainPresumptive = Math.max(0, distribution - presumptiveCost);
-    const selectedGain = Math.min(gainActual, gainPresumptive);
-    const liqTax = capitalIncomeTax(selectedGain + params.otherCapitalIncome) - capitalIncomeTax(params.otherCapitalIncome);
-    const totalTax = totalPersonalTax + totalCorpTax + liqTax;
-    const totalReceived = totalDividendsReceived + distribution;
-    const netTotal = totalReceived - totalPersonalTax - liqTax;
-    results.push({ dividendYears: liqYear, totalDividendsReceived, liquidationDistribution: distribution, totalReceived, personalDividendTax: totalPersonalTax, corporateTax: totalCorpTax, liquidationTax: liqTax, totalTax, netReceived: netTotal, effectiveRate: totalReceived > 0 ? (totalPersonalTax + liqTax) / totalReceived : 0 });
+function pickRecommendation(results){
+  if(!results.length)return results[0];
+  for(let i=0;i<results.length-1;i++){
+    if((results[i].effRate-results[i+1].effRate)<=0.005)return results[i];
   }
-  return results;
+  return results.reduce((a,b)=>a.effRate<=b.effRate?a:b);
 }
 
-const fmt = (n) => n.toLocaleString("fi-FI", { maximumFractionDigits: 0 }) + " \u20ac";
-const pct = (n) => (n * 100).toFixed(1) + " %";
+// ═══════════════════════════════════════════
+// UI RENDERING
+// ═══════════════════════════════════════════
 
-function InputField({ label, value, onChange, suffix, min, max, step, help }) {
-  return h("div", { style: { marginBottom: 12 } },
-    h("label", { style: { display: "block", fontSize: 13, color: "#8a9bb0", marginBottom: 4, letterSpacing: 0.3 } },
-      label,
-      help && h("span", { style: { color: "#5a6a7a", fontSize: 11, marginLeft: 6 } }, "(", help, ")")
-    ),
-    h("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
-      h("input", { type: "number", value: value, onChange: function(e) { onChange(parseFloat(e.target.value) || 0); }, min, max, step: step || 1, style: { width: "100%", padding: "8px 12px", background: "#1a2332", border: "1px solid #2a3a4a", borderRadius: 6, color: "#e0e8f0", fontSize: 14, outline: "none", fontFamily: "inherit" } }),
-      suffix && h("span", { style: { color: "#6a7a8a", fontSize: 13, whiteSpace: "nowrap" } }, suffix)
+const eur=n=>Math.round(n||0).toLocaleString('fi-FI')+' €';
+const pct=n=>((n||0)*100).toFixed(1)+' %';
+
+const DEFAULTS={
+  marketValue:1300000,bookValue:1000000,liabilities:0,distributable:900000,
+  annualDiv:50000,expenses:6000,returnRate:4.5,corpRate:20,years:20,
+  sh1Own:50,sh1Cost:25000,sh1Earned:0,sh1Capital:0,sh1Years:12,
+  sh2Own:50,sh2Cost:25000,sh2Earned:0,sh2Capital:0,sh2Years:12,
+};
+
+let P={...DEFAULTS};
+let activeTab='comparison';
+let results=[];
+let best=null;
+let bestNet=null;
+
+function collectInputs(){
+  const s1=P.sh1Own/100,s2=P.sh2Own/100,sum=s1+s2||1;
+  return{
+    marketValue:P.marketValue,bookValue:P.bookValue,liabilities:P.liabilities,
+    distributable:P.distributable,annualDiv:P.annualDiv,expenses:P.expenses,
+    returnRate:P.returnRate/100,corpRate:P.corpRate/100,years:Math.max(0,Math.round(P.years)),
+    shareholders:[
+      {ownership:s1/sum,acquisitionCost:P.sh1Cost,otherEarned:P.sh1Earned,otherCapital:P.sh1Capital,ownershipYearsNow:P.sh1Years,label:'Osakas 1'},
+      {ownership:s2/sum,acquisitionCost:P.sh2Cost,otherEarned:P.sh2Earned,otherCapital:P.sh2Capital,ownershipYearsNow:P.sh2Years,label:'Osakas 2'}
+    ]
+  };
+}
+
+function recalc(){
+  const inp=collectInputs();
+  results=[];
+  for(let y=0;y<=inp.years;y++)results.push(simulate(inp,y));
+  best=pickRecommendation(results);
+  bestNet=results.reduce((a,b)=>a.totalNet>=b.totalNet?a:b);
+  render();
+}
+
+function h(tag,attrs,...children){
+  const el=document.createElement(tag);
+  if(attrs)Object.entries(attrs).forEach(([k,v])=>{
+    if(k==='style'&&typeof v==='object')Object.assign(el.style,v);
+    else if(k.startsWith('on'))el.addEventListener(k.slice(2).toLowerCase(),v);
+    else el.setAttribute(k,v);
+  });
+  children.flat(9).forEach(c=>{if(c!=null)el.append(typeof c==='string'||typeof c==='number'?document.createTextNode(c):c)});
+  return el;
+}
+
+function field(label,key,suffix,step,helpText){
+  const d=h('div',{class:'field'},
+    h('label',null,label,helpText?h('span',{class:'help'},'('+helpText+')'):''),
+    h('div',{class:'row'},
+      h('input',{type:'number',value:P[key],step:step||1,onInput:e=>{P[key]=parseFloat(e.target.value)||0;recalc()}}),
+      suffix?h('span',{class:'suffix'},suffix):''
     )
   );
+  return d;
 }
 
-function Section({ title, children, icon }) {
-  return h("div", { style: { background: "#0f1923", borderRadius: 10, padding: "18px 20px", marginBottom: 16, border: "1px solid #1a2a3a" } },
-    h("h3", { style: { margin: "0 0 14px 0", fontSize: 14, fontWeight: 600, color: "#4db8ff", textTransform: "uppercase", letterSpacing: 1.2, display: "flex", alignItems: "center", gap: 8 } }, icon && h("span", null, icon), title),
-    children
+function renderSidebar(){
+  const sb=document.getElementById('sidebar');
+  sb.innerHTML='';
+
+  const sec=(title,icon,...children)=>{
+    const s=h('div',{class:'section'},h('h3',null,icon+' '+title),...children);
+    sb.appendChild(s);
+  };
+
+  sec('Vakuutuskuori','📊',
+    field('Sijoitusten kirjanpitoarvo','bookValue','€',10000,'taseessa'),
+    field('Sijoitusten käypä arvo','marketValue','€',10000,'markkina-arvo'),
+    h('div',{style:{padding:'7px 9px',background:'#0a1628',borderRadius:'6px',fontSize:'11px',color:'#5a8aaa',lineHeight:'1.5',marginTop:'4px'}},
+      'Realisoitumaton: '+eur(P.marketValue-P.bookValue))
+  );
+
+  sec('Yhtiön tase','🏢',
+    field('Velat','liabilities','€',1000),
+    field('Jakokelpoinen vapaa pääoma','distributable','€',10000,'rajoittaa osinkoja')
+  );
+
+  sec('Osakas 1','👤',
+    field('Omistusosuus','sh1Own','%',1),
+    field('Hankintahinta','sh1Cost','€',1000),
+    field('Muut ansiotulot','sh1Earned','€/v',1000),
+    field('Muut pääomatulot','sh1Capital','€/v',1000),
+    field('Omistusaika','sh1Years','v',1)
+  );
+
+  sec('Osakas 2','👤',
+    field('Omistusosuus','sh2Own','%',1),
+    field('Hankintahinta','sh2Cost','€',1000),
+    field('Muut ansiotulot','sh2Earned','€/v',1000),
+    field('Muut pääomatulot','sh2Capital','€/v',1000),
+    field('Omistusaika','sh2Years','v',1)
+  );
+
+  sec('Osinko & sijoitus','💰',
+    field('Vuosiosinko yhteensä','annualDiv','€',5000),
+    field('Yhtiön vuosikulut','expenses','€',500),
+    field('Sijoitustuotto','returnRate','%',0.5),
+    field('Yhteisövero','corpRate','%',1),
+    field('Simulointijakso','years','v',1)
   );
 }
 
-function ResultCard({ label, value, sub, highlight, color }) {
-  return h("div", { style: { background: highlight ? "linear-gradient(135deg, #0a2a1a, #0f2a20)" : "#0f1923", border: "1px solid " + (highlight ? "#1a5a3a" : "#1a2a3a"), borderRadius: 10, padding: "14px 16px", flex: "1 1 200px", minWidth: 160 } },
-    h("div", { style: { fontSize: 12, color: "#6a8a9a", marginBottom: 4, letterSpacing: 0.3 } }, label),
-    h("div", { style: { fontSize: 20, fontWeight: 700, color: color || "#e0f0ff", fontVariantNumeric: "tabular-nums" } }, value),
-    sub && h("div", { style: { fontSize: 11, color: "#5a7a6a", marginTop: 2 } }, sub)
+function renderTabs(){
+  const tabs=document.getElementById('tabs');
+  tabs.innerHTML='';
+  [{id:'comparison',l:'Vertailu'},{id:'yearly',l:'Osinkoerittely'},{id:'liquidation',l:'Purkaminen'},{id:'hybrid',l:'Hybridi-optimointi'}].forEach(t=>{
+    const btn=h('button',{class:'tab'+(activeTab===t.id?' active':''),onClick:()=>{activeTab=t.id;render()}},t.l);
+    tabs.appendChild(btn);
+  });
+}
+
+function card(k,v,sub,cls){
+  return h('div',{class:'card'+(cls?' '+cls:'')},
+    h('div',{class:'k'},k),
+    h('div',{class:'v',style:{color:cls==='highlight'?'#2ddc6f':cls==='blue'?'#4daeff':'#d8e4f0'}},v),
+    sub?h('div',{class:'sub'},sub):''
   );
 }
 
-function MiniBar({ value, max, color }) {
-  const w = max > 0 ? Math.min(100, (value / max) * 100) : 0;
-  return h("div", { style: { height: 6, background: "#1a2a3a", borderRadius: 3, overflow: "hidden", width: "100%" } },
-    h("div", { style: { height: "100%", width: w + "%", background: color || "#4db8ff", borderRadius: 3, transition: "width 0.3s" } })
+function tableEl(headers,rows){
+  const t=h('table',null,
+    h('thead',null,h('tr',null,...headers.map((hd,i)=>h('th',{style:{textAlign:i===0?'left':'right'}},hd)))),
+    h('tbody',null,...rows)
   );
+  const wrap=h('div',{class:'tbl-wrap'},t);
+  return wrap;
 }
 
-function TH({ children, align }) {
-  return h("th", { style: { padding: "7px 8px", textAlign: align || "right", color: "#4db8ff", fontWeight: 600, fontSize: 10, letterSpacing: 0.3, whiteSpace: "nowrap" } }, children);
+function renderComparison(){
+  const m=document.getElementById('main');m.innerHTML='';
+  if(!results.length)return;
+
+  m.appendChild(h('h2',{style:{fontSize:'15px',color:'#e0f0ff',marginBottom:'14px'}},'Strategioiden vertailu'));
+
+  const imm=results[0];
+  m.appendChild(h('div',{class:'cards'},
+    card('Välitön purkaminen',eur(imm.totalNet),'Vero: '+pct(imm.effRate),''),
+    card('Vero-optimaalinen purku',best.liqYear===0?'Heti':best.liqYear+'v','Eff. vero: '+pct(best.effRate)+' | Netto: '+eur(best.totalNet),'highlight'),
+    card('Paras nettosaanto',eur(bestNet.totalNet),bestNet.liqYear+'v osinkoa → purku | Vero: '+pct(bestNet.effRate),'blue')
+  ));
+
+  const hdrs=['Purku-vuosi','Osingot brutto','Purkujako','Osinko-verot','Purku-vero','Yhteisö-verot','Eff. vero','All-in','Nettosaanto'];
+  const rows=results.map(r=>{
+    const isBest=r.liqYear===best.liqYear;
+    const isMaxNet=r.liqYear===bestNet.liqYear&&r.liqYear!==best.liqYear;
+    const tr=h('tr',{class:isBest?'row-best':(isMaxNet?'row-maxnet':'')},
+      h('td',null,(r.liqYear===0?'Heti':r.liqYear+'v')+(isBest?' ★':'')+(isMaxNet?' ◆':'')),
+      h('td',null,eur(r.totGrossDiv)),
+      h('td',null,eur(r.liqPool)),
+      h('td',{style:{color:'var(--orange)'}},eur(r.totDivTax)),
+      h('td',{style:{color:'var(--orange)'}},eur(r.liqShTax)),
+      h('td',{style:{color:'var(--red)'}},eur(r.totCorpTax)),
+      h('td',null,pct(r.effRate)),
+      h('td',null,pct(r.allInRate)),
+      h('td',{style:{fontWeight:700,color:isBest?'var(--green)':(isMaxNet?'var(--cyan)':'var(--text)')}},eur(r.totalNet))
+    );
+    return tr;
+  });
+
+  m.appendChild(tableEl(hdrs,rows));
+
+  // Recommendation
+  const rec=h('div',{class:'rec'});
+  rec.innerHTML='<strong style="color:#2ddc6f">★ Vero-optimaalinen purkuajankohta:</strong> '+
+    (best.liqYear===0
+      ?'Veroprosentti ei enää laske merkittävästi — yhtiön voi purkaa heti. Eff. vero: '+pct(best.effRate)+', netto: '+eur(best.totalNet)+'.'
+      :'Jaa osinkoja '+best.liqYear+' vuotta ('+eur(P.annualDiv)+'/v), sitten purka yhtiö. Eff. vero: '+pct(best.effRate)+', netto: '+eur(best.totalNet)+'. Tämän jälkeen veroprosentti ei enää laske merkittävästi (<0,5 %-yks./v).');
+  if(bestNet.liqYear!==best.liqYear){
+    rec.innerHTML+='<br><strong style="color:#4daeff">◆ Paras nettosaanto:</strong> '+bestNet.liqYear+'v osinkoa → purku. Netto: '+eur(bestNet.totalNet)+' ('+pct(bestNet.effRate)+'). Lisäodotus tuottaa '+eur(bestNet.totalNet-best.totalNet)+' enemmän.';
+  }
+  m.appendChild(rec);
+
+  m.appendChild(h('div',{class:'note'},'⚠️ Tämä laskelma on arvio eikä korvaa veroasiantuntijan neuvoja. Ansiotuloveron laskenta on yksinkertaistettu. Todellinen verotus riippuu kunnallisveroprosentista, vähennyksistä ja muista tekijöistä.'));
 }
 
-function TD({ children, style }) {
-  return h("td", { style: Object.assign({ padding: "6px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }, style || {}) }, children);
+function renderYearly(){
+  const m=document.getElementById('main');m.innerHTML='';
+  if(!best||!best.yearly.length)return;
+
+  const scenario=best;
+  m.appendChild(h('h2',{style:{fontSize:'15px',color:'#e0f0ff',marginBottom:'6px'}},'Osinkoerittely — suositeltu skenaario ('+scenario.liqYear+'v)'));
+  m.appendChild(h('p',{style:{fontSize:'12px',color:'var(--muted)',marginBottom:'14px'}},'Vuosittainen erittely osinkojen verotuksesta ja yhtiön tilanteesta.'));
+
+  const inp=collectInputs();
+  m.appendChild(h('div',{class:'cards'},
+    card('Todellinen nettovarallisuus',eur(P.marketValue-P.liabilities),'sis. realisoitumaton '+eur(P.marketValue-P.bookValue)),
+    card('8% raja (osinko)',eur((P.marketValue-P.liabilities)*0.08)),
+    card('Jakokelpoinen',eur(P.distributable)),
+    card('Vuosiosinko',eur(P.annualDiv))
+  ));
+
+  const hdrs=['Vuosi','Kuoren arvo','Nosto','Real. voitto','Yht.vero','Osinko','Os.1 vero','Os.2 vero','Jakokelpoiset','Nettovarat'];
+  const rows=scenario.yearly.map(y=>{
+    const sh1Tax=y.shRows[0]?y.shRows[0].totalTax:0;
+    const sh2Tax=y.shRows[1]?y.shRows[1].totalTax:0;
+    return h('tr',null,
+      h('td',null,y.year),
+      h('td',null,eur(y.mvAfterReturn)),
+      h('td',null,eur(y.withdrawal)),
+      h('td',{style:{color:'var(--muted)'}},eur(y.realisedGain)),
+      h('td',{style:{color:'var(--red)'}},eur(y.corpTax)),
+      h('td',{style:{fontWeight:600}},eur(y.actualDiv)),
+      h('td',{style:{color:'var(--orange)'}},eur(sh1Tax)),
+      h('td',{style:{color:'var(--orange)'}},eur(sh2Tax)),
+      h('td',null,eur(y.distributable)),
+      h('td',null,eur(y.endNetAssets))
+    );
+  });
+  m.appendChild(tableEl(hdrs,rows));
+
+  // Summary
+  const s=h('div',{class:'section',style:{marginTop:'14px',fontSize:'12px',lineHeight:'1.8'}});
+  s.innerHTML='<strong style="color:var(--accent)">Yhteenveto '+scenario.liqYear+'v jälkeen:</strong><br>'+
+    'Osingot yhteensä (brutto): '+eur(scenario.totGrossDiv)+'<br>'+
+    'Osinkoverot: '+eur(scenario.totDivTax)+'<br>'+
+    'Yhteisöverot (kuoren nostot): '+eur(scenario.totCorpTax-scenario.liqCorpTax)+'<br>'+
+    'Jäljellä olevan kuoren arvo: '+eur(scenario.yearly.length?scenario.yearly[scenario.yearly.length-1].endMv:P.marketValue);
+  m.appendChild(s);
 }
 
-function App() {
-  const [params, setParams] = useState(DEFAULTS);
-  const [tab, setTab] = useState("comparison");
-  const set = useCallback(function(key) { return function(val) { setParams(function(p) { var n = {}; for (var k in p) n[k] = p[k]; n[key] = val; return n; }); }; }, []);
+function renderLiquidation(){
+  const m=document.getElementById('main');m.innerHTML='';
 
-  const dividendSim = useMemo(function() { return simulateDividendStrategy(params); }, [params]);
-  const liquidationResults = useMemo(function() { var r = []; for (var y = 0; y <= params.simulationYears; y++) r.push(simulateLiquidation(params, y)); return r; }, [params]);
-  const hybridResults = useMemo(function() { return simulateHybrid(params); }, [params]);
-  const bestHybrid = useMemo(function() { return hybridResults.reduce(function(best, r) { return r.netReceived > best.netReceived ? r : best; }, hybridResults[0]); }, [hybridResults]);
+  m.appendChild(h('h2',{style:{fontSize:'15px',color:'#e0f0ff',marginBottom:'6px'}},'Purkaminen — eri ajankohtina'));
+  m.appendChild(h('p',{style:{fontSize:'12px',color:'var(--muted)',marginBottom:'14px'}},'Osingot jaetaan vuosittain ennen purkua. Purkuhetkellä kuoren jäljellä oleva arvonnousu realisoituu.'));
 
-  // Find optimal liquidation year: when effective tax rate stops meaningfully decreasing
-  // Rule: if next year's rate drops less than 0.5 percentage points vs current, recommend current year
-  const optimalTaxYear = useMemo(function() {
-    for (var i = 0; i < hybridResults.length - 1; i++) {
-      var currentRate = hybridResults[i].effectiveRate;
-      var nextRate = hybridResults[i + 1].effectiveRate;
-      var dropPP = (currentRate - nextRate) * 100; // drop in percentage points
-      // If rate is no longer dropping meaningfully (less than 0.5pp improvement)
-      if (dropPP < 0.5) {
-        return hybridResults[i];
-      }
-    }
-    // If rate keeps dropping throughout, recommend last year
-    return hybridResults[hybridResults.length - 1];
-  }, [hybridResults]);
+  const oy=P.sh1Years;
+  m.appendChild(h('div',{class:'cards'},
+    card('HMO',oy>=10?'40 %':'20 %','Omistusaika: '+oy+'v'),
+    card('Hankintahinta os.1',eur(P.sh1Cost)),
+    card('Hankintahinta os.2',eur(P.sh2Cost)),
+    card('Realisoitumaton',eur(P.marketValue-P.bookValue))
+  ));
 
-  const immediateLiq = liquidationResults[0];
-  const lastDivYear = dividendSim[dividendSim.length - 1];
-  const totalDivNet = lastDivYear ? lastDivYear.cumulativeDividend - (lastDivYear.cumulativeTax - lastDivYear.cumulativeCorpTax) : 0;
-
-  const tabs = [
-    { id: "comparison", label: "Vertailu" },
-    { id: "dividend", label: "Osinkostrategia" },
-    { id: "liquidation", label: "Purkaminen" },
-    { id: "hybrid", label: "Hybridi-optimointi" },
-  ];
-
-  function tabBtn(t) {
-    return h("button", { key: t.id, onClick: function() { setTab(t.id); }, style: { padding: "7px 14px", background: tab === t.id ? "#1a3a5a" : "transparent", border: "1px solid " + (tab === t.id ? "#2a5a8a" : "#1a2a3a"), borderRadius: 6, color: tab === t.id ? "#4db8ff" : "#5a7a8a", fontSize: 12, fontWeight: 600, cursor: "pointer", letterSpacing: 0.5, fontFamily: "inherit" } }, t.label);
-  }
-
-  // ---- TAB: COMPARISON ----
-  function renderComparison() {
-    return h("div", null,
-      h("h2", { style: { fontSize: 16, color: "#e0f0ff", marginBottom: 16 } }, "Strategioiden vertailu"),
-      h("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 } },
-        h(ResultCard, { label: "V\u00e4lit\u00f6n purkaminen", value: fmt(immediateLiq.netReceived), sub: "Vero: " + fmt(immediateLiq.tax) + " (" + pct(immediateLiq.effectiveRate) + ")", color: "#ff9944" }),
-        h(ResultCard, { label: "Osinko " + params.simulationYears + "v (netto)", value: fmt(totalDivNet), sub: "+ yhti\u00f6n j\u00e4ljell\u00e4 olevat varat", color: "#44bbff" }),
-        h(ResultCard, { label: "Vero-optimaalinen purku", value: optimalTaxYear.dividendYears === 0 ? "Heti" : optimalTaxYear.dividendYears + "v", sub: "Eff. vero: " + pct(optimalTaxYear.effectiveRate) + " | Netto: " + fmt(optimalTaxYear.netReceived), highlight: true, color: "#44ff88" }),
-        h(ResultCard, { label: "Paras nettosaanto", value: fmt(bestHybrid.netReceived), sub: bestHybrid.dividendYears + "v osinkoa \u2192 purku | Vero: " + pct(bestHybrid.effectiveRate), color: "#44ddff" })
-      ),
-      h("div", { style: { overflowX: "auto" } },
-        h("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 13 } },
-          h("thead", null,
-            h("tr", { style: { borderBottom: "2px solid #1a3a5a" } },
-              h(TH, { align: "left" }, "PURKUVUOSI"), h(TH, null, "OSINGOT (NETTO)"), h(TH, null, "PURKUJAKO"), h(TH, null, "VEROT YHT."), h(TH, null, "NETTO YHT."), h(TH, null, "VERO-%"), h("th", { style: { width: 100 } })
-            )
-          ),
-          h("tbody", null,
-            hybridResults.map(function(r, i) {
-              var isBestNet = r.dividendYears === bestHybrid.dividendYears;
-              var isTaxOpt = r.dividendYears === optimalTaxYear.dividendYears;
-              var highlight = isTaxOpt || isBestNet;
-              var rowColor = isTaxOpt ? "#44ff88" : (isBestNet ? "#44ddff" : "#c0d0e0");
-              return h("tr", { key: i, style: { borderBottom: "1px solid #121f2e", background: highlight ? (isTaxOpt ? "rgba(68,255,136,0.05)" : "rgba(68,221,255,0.04)") : "transparent" } },
-                h(TD, { style: { textAlign: "left", color: highlight ? rowColor : "#c0d0e0" } }, (r.dividendYears === 0 ? "Heti" : r.dividendYears + "v") + (isTaxOpt ? " \u2605" : "") + (isBestNet && !isTaxOpt ? " \u25c6" : "")),
-                h(TD, null, fmt(r.totalDividendsReceived - r.personalDividendTax)),
-                h(TD, null, fmt(r.liquidationDistribution)),
-                h(TD, { style: { color: "#ff7744" } }, fmt(r.personalDividendTax + r.liquidationTax + r.corporateTax)),
-                h(TD, { style: { fontWeight: 600, color: highlight ? rowColor : "#e0f0ff" } }, fmt(r.netReceived)),
-                h(TD, null, pct(r.effectiveRate)),
-                h("td", { style: { padding: "7px 6px" } }, h(MiniBar, { value: r.netReceived, max: bestHybrid.netReceived * 1.05, color: isTaxOpt ? "#44ff88" : (isBestNet ? "#44ddff" : "#2a5a8a") }))
-              );
-            })
-          )
-        )
-      ),
-      h("div", { style: { marginTop: 20, padding: "14px 18px", background: "rgba(68,255,136,0.05)", border: "1px solid #1a4a2a", borderRadius: 8, fontSize: 13, lineHeight: 1.6 } },
-        h("strong", { style: { color: "#44ff88" } }, "\u2605 Vero-optimaalinen purkuajankohta: "),
-        optimalTaxYear.dividendYears === 0
-          ? "Veroprosentti ei en\u00e4\u00e4 laske merkitt\u00e4v\u00e4sti \u2014 yhti\u00f6n voi purkaa heti. Eff. vero: " + pct(optimalTaxYear.effectiveRate) + ", netto: " + fmt(optimalTaxYear.netReceived) + "."
-          : "Jaa osinkoja " + optimalTaxYear.dividendYears + " vuotta (" + fmt(params.annualDividend) + "/v), sitten purka yhti\u00f6. Eff. veroprosentti: " + pct(optimalTaxYear.effectiveRate) + ", netto: " + fmt(optimalTaxYear.netReceived) + ". T\u00e4m\u00e4n j\u00e4lkeen veroprosentti ei en\u00e4\u00e4 laske merkitt\u00e4v\u00e4sti (<0,5 %-yks./v).",
-        bestHybrid.dividendYears !== optimalTaxYear.dividendYears
-          ? h("span", null, h("br"), h("strong", { style: { color: "#44ddff" } }, "\u25c6 Paras nettosaanto: "), bestHybrid.dividendYears + "v osinkoa \u2192 purku. Netto: " + fmt(bestHybrid.netReceived) + " (" + pct(bestHybrid.effectiveRate) + "). Lis\u00e4odotus tuottaa " + fmt(bestHybrid.netReceived - optimalTaxYear.netReceived) + " enemm\u00e4n.")
-          : null
-      )
+  const hdrs=['Vuosi','Nettovarat','Osingot kum.','Purkujako','Luov.voitto os.1','Metodi','Purkuvero','Eff. %','Netto yht.'];
+  const rows=results.map(r=>{
+    const g1=r.shLiq[0]||{};
+    return h('tr',null,
+      h('td',null,r.liqYear===0?'Heti':r.liqYear+'v'),
+      h('td',null,eur(r.preLiqNetAssets)),
+      h('td',{style:{color:'#6aaacc'}},eur(r.totGrossDiv)),
+      h('td',null,eur(r.liqPool)),
+      h('td',null,eur(g1.selectedGain||0)),
+      h('td',{style:{color:g1.method&&g1.method.startsWith('HMO')?'var(--green)':'var(--orange)',fontSize:'11px'}},g1.method||''),
+      h('td',{style:{color:'var(--red)'}},eur(r.liqShTax)),
+      h('td',null,pct(r.effRate)),
+      h('td',{style:{fontWeight:600,color:'var(--green)'}},eur(r.totalNet))
     );
-  }
+  });
+  m.appendChild(tableEl(hdrs,rows));
 
-  // ---- TAB: DIVIDEND ----
-  function renderDividend() {
-    var headers = ["Vuosi","Nettovarat","Tuotto","Yht.vero","Osinko","\u2192 P\u00e4\u00e4oma","\u2192 Ansio","Osinkovero","Netto","Kum. netto"];
-    return h("div", null,
-      h("h2", { style: { fontSize: 16, color: "#e0f0ff", marginBottom: 16 } }, "Osinkostrategia \u2014 vuosittainen erittely"),
-      h("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 } },
-        h(ResultCard, { label: "Todellinen nettovarallisuus", value: fmt(realNetAssets(params)), sub: "sis. realisoitumaton arvonnousu" }),
-        h(ResultCard, { label: "8% raja (osinko)", value: fmt(realNetAssets(params) * params.shareholderOwnership * 0.08) }),
-        h(ResultCard, { label: "Jakokelpoinen vapaa p\u00e4\u00e4oma", value: fmt(params.distributableEquity) }),
-        h(ResultCard, { label: "Vuosiosinko", value: fmt(params.annualDividend) })
-      ),
-      h("div", { style: { overflowX: "auto" } },
-        h("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 12 } },
-          h("thead", null,
-            h("tr", { style: { borderBottom: "2px solid #1a3a5a" } },
-              headers.map(function(hd) { return h(TH, { key: hd, align: hd === "Vuosi" ? "left" : "right" }, hd); })
-            )
-          ),
-          h("tbody", null,
-            dividendSim.map(function(r, i) {
-              return h("tr", { key: i, style: { borderBottom: "1px solid #121f2e" } },
-                h(TD, { style: { textAlign: "left" } }, r.year),
-                h(TD, null, fmt(r.netAssetsStart)),
-                h(TD, { style: { color: "#44bb88" } }, fmt(r.investmentIncome)),
-                h(TD, { style: { color: "#ff7744" } }, fmt(r.corpTax)),
-                h(TD, { style: { fontWeight: 600 } }, fmt(r.dividend)),
-                h(TD, { style: { color: "#88aacc" } }, fmt(r.capitalDividend)),
-                h(TD, { style: { color: r.earnedDividend > 0 ? "#ffaa44" : "#3a4a5a" } }, fmt(r.earnedDividend)),
-                h(TD, { style: { color: "#ff7744" } }, fmt(r.dividendTax)),
-                h(TD, { style: { color: "#44ff88" } }, fmt(r.netReceived)),
-                h(TD, { style: { fontWeight: 600 } }, fmt(r.cumulativeDividend - (r.cumulativeTax - r.cumulativeCorpTax)))
-              );
-            })
-          )
-        )
-      ),
-      lastDivYear && h("div", { style: { marginTop: 16, padding: "12px 16px", background: "#0f1923", border: "1px solid #1a2a3a", borderRadius: 8, fontSize: 12, lineHeight: 1.8 } },
-        h("strong", { style: { color: "#4db8ff" } }, "Yhteenveto " + params.simulationYears + "v j\u00e4lkeen:"),
-        h("br"), "Osingot yhteens\u00e4 (brutto): " + fmt(lastDivYear.cumulativeDividend),
-        h("br"), "Henkil\u00f6kohtaiset verot: " + fmt(lastDivYear.cumulativeTax - lastDivYear.cumulativeCorpTax),
-        h("br"), "Yhteist\u00f6verot (oma osuus): " + fmt(lastDivYear.cumulativeCorpTax),
-        h("br"), "Yhti\u00f6n nettovarat (sis. realisoitumaton): " + fmt(lastDivYear.netAssetsEnd),
-        h("br"), "Jakokelpoinen vapaa p\u00e4\u00e4oma j\u00e4ljell\u00e4: " + fmt(lastDivYear.distributableRemaining)
-      )
-    );
-  }
-
-  // ---- TAB: LIQUIDATION ----
-  function renderLiquidation() {
-    var headers = ["Vuosi","Nettovarat","Osingot (kum.)","Jako-osuus","Luovutusvoitto","Metodi","Purkuvero","Eff. %","Netto yht."];
-    return h("div", null,
-      h("h2", { style: { fontSize: 16, color: "#e0f0ff", marginBottom: 16 } }, "Yhti\u00f6n purkaminen \u2014 eri ajankohtina"),
-      h("p", { style: { fontSize: 12, color: "#6a8a9a", marginBottom: 16 } }, "Osingot jaetaan vuosittain ennen purkua. Nettovarat pienenev\u00e4t osinkojen ja kulujen my\u00f6t\u00e4."),
-      h("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 } },
-        h(ResultCard, { label: "Hankintameno-olettama", value: params.ownershipYears >= 10 ? "40 %" : "20 %", sub: "Omistusaika: " + params.ownershipYears + "v" }),
-        h(ResultCard, { label: "Todellinen hankintahinta", value: fmt(params.originalPurchasePrice) }),
-        h(ResultCard, { label: "Oma osuus (todellinen)", value: fmt(realNetAssets(params) * params.shareholderOwnership), sub: "sis. realisoitumaton " + fmt(unrealisedGain(params)) })
-      ),
-      h("div", { style: { overflowX: "auto" } },
-        h("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 12 } },
-          h("thead", null,
-            h("tr", { style: { borderBottom: "2px solid #1a3a5a" } },
-              headers.map(function(hd) { return h(TH, { key: hd, align: (hd === "Vuosi" || hd === "Metodi") ? "left" : "right" }, hd); })
-            )
-          ),
-          h("tbody", null,
-            liquidationResults.map(function(r, i) {
-              return h("tr", { key: i, style: { borderBottom: "1px solid #121f2e" } },
-                h(TD, { style: { textAlign: "left" } }, r.year === 0 ? "Heti" : r.year + "v"),
-                h(TD, null, fmt(r.netAssetsAtLiquidation)),
-                h(TD, { style: { color: "#88aacc" } }, fmt(r.totalDividendsPaid)),
-                h(TD, null, fmt(r.shareholderDistribution)),
-                h(TD, null, fmt(r.selectedGain)),
-                h(TD, { style: { textAlign: "left", fontSize: 11, color: r.usePresumptive ? "#88cc44" : "#ccaa44" } }, r.usePresumptive ? "Olettama" : "Todellinen"),
-                h(TD, { style: { color: "#ff7744" } }, fmt(r.tax)),
-                h(TD, null, pct(r.effectiveRate)),
-                h(TD, { style: { fontWeight: 600, color: "#44ff88" } }, fmt(r.totalNetReceived))
-              );
-            })
-          )
-        )
-      ),
-      h("div", { style: { marginTop: 16, padding: "12px 16px", background: "#0f1923", border: "1px solid #1a2a3a", borderRadius: 8, fontSize: 12, lineHeight: 1.8 } },
-        h("strong", { style: { color: "#4db8ff" } }, "Huomioita:"),
-        h("br"), "\u2022 Vuosittaiset osingot jaetaan ennen purkua \u2014 nettovarat pienenev\u00e4t vastaavasti",
-        h("br"), "\u2022 Purkutilanteessa jako-osuus verotetaan osakkeiden luovutusvoittona (ei osinkona)",
-        h("br"), "\u2022 Hankintameno-olettama 40 % kun omistusaika \u2265 10v, muuten 20 %",
-        h("br"), "\u2022 Realisoitumaton arvonnousu realisoituu purkuhetkell\u00e4 \u2192 yhti\u00f6 maksaa 20 % yhteist\u00f6veron",
-        h("br"), "\u2022 Netto yht. = osingot netto + purkujako netto (kaikki verot huomioitu)",
-        h("br"), "\u2022 Eff. % = (osinkovero + purkuvero) / (osingot brutto + purkujako brutto)"
-      )
-    );
-  }
-
-  // ---- TAB: HYBRID ----
-  function renderHybrid() {
-    var headers = ["Osinko-v","Osingot brutto","Osinkovero","Yht.vero","Purkujako","Purkuvero","Verot yht.","NETTO","Eff. %"];
-    return h("div", null,
-      h("h2", { style: { fontSize: 16, color: "#e0f0ff", marginBottom: 16 } }, "Hybridistrategia \u2014 osingot + purku"),
-      h("p", { style: { fontSize: 12, color: "#6a8a9a", marginBottom: 16 } }, "Maksa osinkoja N vuotta ja purka yhti\u00f6 sen j\u00e4lkeen."),
-      h("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 } },
-        h(ResultCard, { label: "Vero-optimaalinen purku", value: optimalTaxYear.dividendYears === 0 ? "Heti" : optimalTaxYear.dividendYears + "v", sub: "Eff. vero: " + pct(optimalTaxYear.effectiveRate) + " | Netto: " + fmt(optimalTaxYear.netReceived), highlight: true, color: "#44ff88" }),
-        h(ResultCard, { label: "Paras nettosaanto", value: fmt(bestHybrid.netReceived), sub: bestHybrid.dividendYears + "v osinkoa \u2192 purku | Vero: " + pct(bestHybrid.effectiveRate), color: "#44ddff" })
-      ),
-      // Bar chart
-      h("div", { style: { marginBottom: 20 } },
-        hybridResults.map(function(r, i) {
-          var isTaxOpt = r.dividendYears === optimalTaxYear.dividendYears;
-          var isBestNet = r.dividendYears === bestHybrid.dividendYears;
-          var barMax = bestHybrid.netReceived * 1.05;
-          var divW = barMax > 0 ? ((r.totalDividendsReceived - r.personalDividendTax) / barMax * 100) : 0;
-          var liqW = barMax > 0 ? ((r.liquidationDistribution - r.liquidationTax) / barMax * 100) : 0;
-          var labelColor = isTaxOpt ? "#44ff88" : (isBestNet ? "#44ddff" : "#6a8a9a");
-          return h("div", { key: i, style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 3 } },
-            h("div", { style: { width: 40, fontSize: 11, color: labelColor, textAlign: "right", flexShrink: 0 } }, r.dividendYears === 0 ? "Heti" : r.dividendYears + "v"),
-            h("div", { style: { flex: 1, display: "flex", height: 18, borderRadius: 3, overflow: "hidden", background: "#121f2e" } },
-              h("div", { style: { width: Math.max(0, divW) + "%", background: "#2a6a9a", transition: "width 0.3s" }, title: "Osingot netto: " + fmt(r.totalDividendsReceived - r.personalDividendTax) }),
-              h("div", { style: { width: Math.max(0, liqW) + "%", background: isTaxOpt ? "#2a8a4a" : "#1a5a3a", transition: "width 0.3s" }, title: "Purkujako netto: " + fmt(r.liquidationDistribution - r.liquidationTax) })
-            ),
-            h("div", { style: { width: 90, fontSize: 11, fontVariantNumeric: "tabular-nums", textAlign: "right", color: labelColor, fontWeight: (isTaxOpt || isBestNet) ? 700 : 400 } }, fmt(r.netReceived))
-          );
-        }),
-        h("div", { style: { display: "flex", gap: 16, marginTop: 8, fontSize: 11, color: "#5a7a8a" } },
-          h("span", null, h("span", { style: { display: "inline-block", width: 10, height: 10, background: "#2a6a9a", borderRadius: 2, marginRight: 4, verticalAlign: "middle" } }), "Osingot (netto)"),
-          h("span", null, h("span", { style: { display: "inline-block", width: 10, height: 10, background: "#2a8a4a", borderRadius: 2, marginRight: 4, verticalAlign: "middle" } }), "Purkujako (netto)")
-        )
-      ),
-      // Table
-      h("div", { style: { overflowX: "auto" } },
-        h("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 12 } },
-          h("thead", null,
-            h("tr", { style: { borderBottom: "2px solid #1a3a5a" } },
-              headers.map(function(hd) { return h(TH, { key: hd, align: hd === "Osinko-v" ? "left" : "right" }, hd); })
-            )
-          ),
-          h("tbody", null,
-            hybridResults.map(function(r, i) {
-              var isTaxOpt = r.dividendYears === optimalTaxYear.dividendYears;
-              var isBestNet = r.dividendYears === bestHybrid.dividendYears;
-              var highlight = isTaxOpt || isBestNet;
-              var rowColor = isTaxOpt ? "#44ff88" : (isBestNet ? "#44ddff" : "#c0d0e0");
-              return h("tr", { key: i, style: { borderBottom: "1px solid #121f2e", background: highlight ? (isTaxOpt ? "rgba(68,255,136,0.05)" : "rgba(68,221,255,0.04)") : "transparent" } },
-                h(TD, { style: { textAlign: "left", color: highlight ? rowColor : "#c0d0e0" } }, (r.dividendYears === 0 ? "Heti" : r.dividendYears + "v") + (isTaxOpt ? " \u2605" : "") + (isBestNet && !isTaxOpt ? " \u25c6" : "")),
-                h(TD, null, fmt(r.totalDividendsReceived)),
-                h(TD, { style: { color: "#ff7744" } }, fmt(r.personalDividendTax)),
-                h(TD, { style: { color: "#ff9944" } }, fmt(r.corporateTax)),
-                h(TD, null, fmt(r.liquidationDistribution)),
-                h(TD, { style: { color: "#ff7744" } }, fmt(r.liquidationTax)),
-                h(TD, { style: { color: "#ff7744", fontWeight: 600 } }, fmt(r.personalDividendTax + r.liquidationTax + r.corporateTax)),
-                h(TD, { style: { fontWeight: 700, color: highlight ? rowColor : "#e0f0ff" } }, fmt(r.netReceived)),
-                h(TD, null, pct(r.effectiveRate))
-              );
-            })
-          )
-        )
-      )
-    );
-  }
-
-  var content;
-  if (tab === "comparison") content = renderComparison();
-  else if (tab === "dividend") content = renderDividend();
-  else if (tab === "liquidation") content = renderLiquidation();
-  else content = renderHybrid();
-
-  return h("div", { style: { fontFamily: "'JetBrains Mono', 'SF Mono', 'Fira Code', monospace", background: "#0a1520", color: "#c0d0e0", minHeight: "100vh" } },
-    // Header
-    h("div", { style: { background: "linear-gradient(180deg, #0d1f30, #0a1520)", borderBottom: "1px solid #1a2a3a", padding: "20px 24px 16px", position: "sticky", top: 0, zIndex: 100 } },
-      h("h1", { style: { margin: 0, fontSize: 18, fontWeight: 700, color: "#4db8ff", letterSpacing: 1 } }, "\u26a1 VERO-OPTIMOIJA"),
-      h("p", { style: { margin: "4px 0 12px", fontSize: 12, color: "#5a7a8a" } }, "Listaamattoman osakeyhti\u00f6n purkaminen vs. osingonjako \u2014 verotuksen optimointi"),
-      h("div", { style: { display: "flex", gap: 4, flexWrap: "wrap" } }, tabs.map(tabBtn))
-    ),
-    // Body
-    h("div", { style: { display: "flex", gap: 0, flexWrap: "wrap" } },
-      // Sidebar
-      h("div", { style: { width: 320, minWidth: 280, maxHeight: "calc(100vh - 100px)", overflowY: "auto", padding: 16, borderRight: "1px solid #1a2a3a", background: "#0c1825", flexShrink: 0 } },
-        h(Section, { title: "Yhti\u00f6n tase", icon: "\ud83c\udfe2" },
-          h(InputField, { label: "Varat yhteens\u00e4 (tase)", value: params.totalAssets, onChange: set("totalAssets"), suffix: "\u20ac", step: 10000 }),
-          h(InputField, { label: "Velat yhteens\u00e4", value: params.totalLiabilities, onChange: set("totalLiabilities"), suffix: "\u20ac", step: 1000 }),
-          h(InputField, { label: "Jakokelpoinen vapaa p\u00e4\u00e4oma", value: params.distributableEquity, onChange: set("distributableEquity"), suffix: "\u20ac", step: 10000, help: "rajoittaa osinkoja" }),
-          h(InputField, { label: "Osakkeiden lukum\u00e4\u00e4r\u00e4", value: params.numberOfShares, onChange: set("numberOfShares") }),
-          h(InputField, { label: "Oma omistusosuus", value: params.shareholderOwnership * 100, onChange: function(v) { set("shareholderOwnership")(v / 100); }, suffix: "%", step: 1 })
-        ),
-        h(Section, { title: "Sijoitukset", icon: "\ud83d\udcca" },
-          h(InputField, { label: "Sijoitusten kirjanpitoarvo", value: params.investmentBookValue, onChange: set("investmentBookValue"), suffix: "\u20ac", step: 10000, help: "taseessa" }),
-          h(InputField, { label: "Sijoitusten k\u00e4yp\u00e4 arvo", value: params.investmentMarketValue, onChange: set("investmentMarketValue"), suffix: "\u20ac", step: 10000, help: "markkina-arvo" }),
-          h("div", { style: { padding: "8px 10px", background: "#121f2e", borderRadius: 6, fontSize: 11, color: "#6a9aaa", lineHeight: 1.5, marginTop: 4 } },
-            "Realisoitumaton arvonnousu: " + fmt(params.investmentMarketValue - params.investmentBookValue),
-            h("br"),
-            "Todellinen nettovarallisuus: " + fmt(realNetAssets(params))
-          )
-        ),
-        h(Section, { title: "Osakkaan tiedot", icon: "\ud83d\udc64" },
-          h(InputField, { label: "Osakkeiden hankintahinta", value: params.originalPurchasePrice, onChange: set("originalPurchasePrice"), suffix: "\u20ac", help: "alkuper\u00e4inen" }),
-          h(InputField, { label: "Omistusaika", value: params.ownershipYears, onChange: set("ownershipYears"), suffix: "v" }),
-          h(InputField, { label: "Muu palkka-/ansiotulo", value: params.otherEarnedIncome, onChange: set("otherEarnedIncome"), suffix: "\u20ac/v", step: 1000 }),
-          h(InputField, { label: "Muut p\u00e4\u00e4omatulot", value: params.otherCapitalIncome, onChange: set("otherCapitalIncome"), suffix: "\u20ac/v", step: 1000 })
-        ),
-        h(Section, { title: "Osinkostrategia", icon: "\ud83d\udcb0" },
-          h(InputField, { label: "Vuosittainen osinko (oma osuus)", value: params.annualDividend, onChange: set("annualDividend"), suffix: "\u20ac", step: 5000 }),
-          h(InputField, { label: "Min. vuosiosinko", value: params.minAnnualDividend, onChange: set("minAnnualDividend"), suffix: "\u20ac", step: 1000 })
-        ),
-        h(Section, { title: "Sijoitusoletukset", icon: "\ud83d\udcc8" },
-          h(InputField, { label: "Sijoitustuotto", value: params.investmentReturnRate * 100, onChange: function(v) { set("investmentReturnRate")(v / 100); }, suffix: "%", step: 0.5 }),
-          h(InputField, { label: "Yhti\u00f6n vuosikulut", value: params.companyExpenses, onChange: set("companyExpenses"), suffix: "\u20ac", step: 500 }),
-          h(InputField, { label: "Simulointijakso", value: params.simulationYears, onChange: set("simulationYears"), suffix: "v", min: 1, max: 40 })
-        )
-      ),
-      // Main content
-      h("div", { style: { flex: 1, padding: "16px 20px", minWidth: 0, overflowX: "auto" } },
-        content,
-        h("div", { style: { marginTop: 24, padding: "12px 16px", background: "#121820", border: "1px solid #1a2228", borderRadius: 8, fontSize: 11, color: "#4a5a6a", lineHeight: 1.5 } },
-          "\u26a0\ufe0f T\u00e4m\u00e4 laskelma on arvio eik\u00e4 korvaa veroasiantuntijan neuvoja. Ansiotuloveron laskenta on yksinkertaistettu. Todellinen verotus riippuu mm. kunnallisveroprosentista, kirkollisverosta, v\u00e4hennyksist\u00e4 ja muista tekij\u00f6ist\u00e4. Yhti\u00f6n purkamiseen liittyy my\u00f6s muita kuin verotuksellisia n\u00e4k\u00f6kohtia."
-        )
-      )
-    )
-  );
+  const notes=h('div',{class:'section',style:{marginTop:'14px',fontSize:'12px',lineHeight:'1.8'}});
+  notes.innerHTML='<strong style="color:var(--accent)">Huomioita:</strong><br>'+
+    '• Vuosittaiset osingot jaetaan ennen purkua<br>'+
+    '• Purkutilanteessa jako-osuus verotetaan luovutusvoittona<br>'+
+    '• HMO 40 % kun omistusaika ≥ 10v, muuten 20 %<br>'+
+    '• Purkuvuoden osinkojen pääomatulo vaikuttaa purkuveron progressioon<br>'+
+    '• Netto yht. = osingot netto + purkujako netto';
+  m.appendChild(notes);
 }
 
-ReactDOM.render(h(App), document.getElementById("root"));
+function renderHybrid(){
+  const m=document.getElementById('main');m.innerHTML='';
+
+  m.appendChild(h('h2',{style:{fontSize:'15px',color:'#e0f0ff',marginBottom:'6px'}},'Hybridistrategia — osingot + purku'));
+  m.appendChild(h('p',{style:{fontSize:'12px',color:'var(--muted)',marginBottom:'14px'}},'Visuaalinen vertailu: osingot N vuotta, sitten purku.'));
+
+  m.appendChild(h('div',{class:'cards'},
+    card('Vero-optimaalinen',best.liqYear===0?'Heti':best.liqYear+'v','Eff. vero: '+pct(best.effRate)+' | Netto: '+eur(best.totalNet),'highlight'),
+    card('Paras nettosaanto',eur(bestNet.totalNet),bestNet.liqYear+'v → purku | '+pct(bestNet.effRate),'blue')
+  ));
+
+  // Bar chart
+  const barContainer=h('div',{style:{marginBottom:'16px'}});
+  const maxVal=bestNet.totalNet*1.05||1;
+  results.forEach(r=>{
+    const isBest=r.liqYear===best.liqYear;
+    const isMaxNet=r.liqYear===bestNet.liqYear;
+    const divNet=r.totGrossDiv-r.totDivTax;
+    const liqNet=r.liqPool-r.liqShTax;
+    const divW=Math.max(0,divNet/maxVal*100);
+    const liqW=Math.max(0,liqNet/maxVal*100);
+    const color=isBest?'var(--green)':(isMaxNet?'var(--cyan)':'var(--muted)');
+    barContainer.appendChild(h('div',{class:'bar-row'},
+      h('div',{class:'bar-label',style:{color}},r.liqYear===0?'Heti':r.liqYear+'v'),
+      h('div',{class:'bar-track'},
+        h('div',{class:'bar-seg',style:{width:divW+'%',background:'#1a5580'}}),
+        h('div',{class:'bar-seg',style:{width:liqW+'%',background:isBest?'#1a6a3a':'#134a2a'}})
+      ),
+      h('div',{class:'bar-val',style:{color,fontWeight:isBest||isMaxNet?700:400}},eur(r.totalNet))
+    ));
+  });
+  m.appendChild(barContainer);
+
+  m.appendChild(h('div',{class:'legend'},
+    h('span',null,h('span',{class:'dot',style:{background:'#1a5580'}}),'Osingot netto'),
+    h('span',null,h('span',{class:'dot',style:{background:'#1a6a3a'}}),'Purkujako netto')
+  ));
+
+  // SVG chart
+  const chartDiv=h('div',{style:{marginTop:'20px'}});
+  const svgW=800,svgH=260,pad={l:60,r:20,t:16,b:32};
+  const xs=results.map(r=>r.liqYear);
+  const ys=results.map(r=>r.totalNet);
+  const effs=results.map(r=>r.effRate);
+  const minY=Math.min(0,...ys),maxY=Math.max(...ys)||1;
+  const minE=Math.min(...effs),maxE=Math.max(...effs)||1;
+  const sx=x=>pad.l+(x/Math.max(1,Math.max(...xs)))*(svgW-pad.l-pad.r);
+  const sy=y=>svgH-pad.b-((y-minY)/(maxY-minY||1))*(svgH-pad.t-pad.b);
+  const se=e=>svgH-pad.b-((e-minE)/(maxE-minE||1))*(svgH-pad.t-pad.b);
+
+  let gridSvg='';
+  for(let i=0;i<=4;i++){
+    const v=minY+(maxY-minY)*(i/4);
+    const yy=sy(v);
+    gridSvg+=`<line x1="${pad.l}" y1="${yy}" x2="${svgW-pad.r}" y2="${yy}" stroke="#1a2a42" />`;
+    gridSvg+=`<text x="4" y="${yy+4}" fill="#5a7a9a" font-size="10">${Math.round(v/1000)}k</text>`;
+  }
+  const pts1=results.map(r=>`${sx(r.liqYear)},${sy(r.totalNet)}`).join(' ');
+  const pts2=results.map(r=>`${sx(r.liqYear)},${se(r.effRate)}`).join(' ');
+  let xLabels='';
+  results.filter((_,i)=>i%Math.max(1,Math.floor(results.length/10))===0||i===results.length-1).forEach(r=>{
+    xLabels+=`<text x="${sx(r.liqYear)}" y="${svgH-6}" fill="#5a7a9a" font-size="10" text-anchor="middle">${r.liqYear}</text>`;
+  });
+
+  const svg=`<svg viewBox="0 0 ${svgW} ${svgH}" class="chart-svg">${gridSvg}
+    <polyline fill="none" stroke="#2ddc6f" stroke-width="2.5" points="${pts1}"/>
+    <polyline fill="none" stroke="#f0a030" stroke-width="1.5" stroke-dasharray="4 3" points="${pts2}"/>
+    ${results.map(r=>`<circle cx="${sx(r.liqYear)}" cy="${sy(r.totalNet)}" r="3" fill="#2ddc6f"/>`).join('')}
+    ${xLabels}</svg>`;
+  chartDiv.innerHTML=svg;
+  m.appendChild(chartDiv);
+
+  m.appendChild(h('div',{class:'legend'},
+    h('span',null,h('span',{class:'dot',style:{background:'#2ddc6f'}}),'Nettosaanto'),
+    h('span',null,h('span',{class:'dot',style:{background:'#f0a030'}}),'Eff. veroprosentti')
+  ));
+}
+
+function render(){
+  renderTabs();
+  if(activeTab==='comparison')renderComparison();
+  else if(activeTab==='yearly')renderYearly();
+  else if(activeTab==='liquidation')renderLiquidation();
+  else renderHybrid();
+}
+
+renderSidebar();
+recalc();
 </script>
 </body>
 </html>
