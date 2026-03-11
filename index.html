@@ -97,90 +97,137 @@ function classifyDividend(dividendPaid, netAssets, otherEarnedIncome, otherCapit
   return { capitalDividend, earnedDividend, taxableCapital, taxableEarned, capitalTax: capTax, earnedTax: earnTax, totalTax: capTax + earnTax };
 }
 
-// Track both book value and real (market) value through simulations.
-// unrealisedGain sits on top of book net assets.
-// Distributable equity limits how much dividend can be paid cumulatively.
-// On liquidation, unrealised gains are realised → company pays 20% corp tax on them first.
+// VAKUUTUSKUORI model:
+// All investment returns stay inside the wrapper (unrealised).
+// Nothing is realised automatically — only when cash is withdrawn.
+// Withdrawals happen for: (1) annual expenses, (2) dividend payments.
+// Each withdrawal realises a proportional share of the accumulated gain.
+// Company pays 20% corp tax on the realised gain portion.
+// After-tax realised profit increases distributable equity.
+//
+// State:
+//   wrapperValue: current market value inside the wrapper
+//   wrapperCostBasis: total cost basis inside the wrapper
+//   bookCash: cash outside wrapper (from realisations minus expenses/dividends/tax)
+//   distributable: distributable equity (grows with after-tax realised gains)
+
+function runYearSimulation(wrapperValue, wrapperCostBasis, bookCash, distributable, params) {
+  const realNAStart = wrapperValue + bookCash;
+
+  // 1. Investment return — all stays inside wrapper
+  const investmentReturn = wrapperValue * params.investmentReturnRate;
+  wrapperValue += investmentReturn;
+
+  // 2. Withdraw from wrapper to cover expenses + dividend
+  //    First determine dividend amount
+  const realNAAfterGrowth = wrapperValue + bookCash;
+  const maxDivShareholder = Math.max(0, realNAAfterGrowth * params.shareholderOwnership);
+  var dividend = Math.min(params.annualDividend, maxDivShareholder);
+  if (dividend < params.minAnnualDividend && maxDivShareholder >= params.minAnnualDividend) {
+    dividend = params.minAnnualDividend;
+  }
+  const totalCompanyDiv = dividend / params.shareholderOwnership;
+  const expenses = params.companyExpenses;
+
+  // Total cash needed from wrapper
+  const cashNeeded = Math.max(0, totalCompanyDiv + expenses - bookCash);
+
+  // Withdraw from wrapper
+  var realisedGain = 0;
+  var corpTax = 0;
+  var withdrawalAmount = 0;
+  if (cashNeeded > 0 && wrapperValue > 0) {
+    withdrawalAmount = Math.min(cashNeeded, wrapperValue);
+    // Gain ratio: what fraction of the withdrawal is profit?
+    const gainRatio = wrapperCostBasis < wrapperValue ? (wrapperValue - wrapperCostBasis) / wrapperValue : 0;
+    realisedGain = withdrawalAmount * gainRatio;
+    corpTax = realisedGain * 0.20;
+
+    // Update wrapper
+    const costBasisSold = withdrawalAmount * (wrapperCostBasis / wrapperValue);
+    wrapperValue -= withdrawalAmount;
+    wrapperCostBasis -= costBasisSold;
+
+    // Cash in: withdrawal minus corp tax on gain
+    bookCash += withdrawalAmount - corpTax;
+
+    // Realised profit increases distributable equity
+    distributable += Math.max(0, realisedGain - corpTax);
+  }
+
+  // 3. Pay expenses and dividend from cash
+  bookCash -= expenses;
+  bookCash -= totalCompanyDiv;
+  distributable -= totalCompanyDiv;
+
+  // 4. Classify dividend for shareholder tax (8% rule uses real net assets before dividend)
+  const divResult = classifyDividend(dividend, realNAAfterGrowth * params.shareholderOwnership, params.otherEarnedIncome, params.otherCapitalIncome);
+
+  return {
+    wrapperValue, wrapperCostBasis, bookCash, distributable,
+    realNAStart: realNAStart, realNAEnd: wrapperValue + bookCash,
+    investmentReturn, realisedGain, corpTax, withdrawalAmount,
+    dividend, divResult, expenses
+  };
+}
 
 function simulateDividendStrategy(params) {
   const years = [];
-  const initUnrealised = params.investmentMarketValue - params.investmentBookValue;
-  // Book net assets = totalAssets - totalLiabilities (from balance sheet)
-  // Real net assets = book net assets + unrealised gain
-  let bookNetAssets = params.totalAssets - params.totalLiabilities;
-  let unrealised = initUnrealised; // grows with investment return on unrealised portion
-  let distributableRemaining = params.distributableEquity;
+  // Initial state: wrapper has investments, cash outside is (totalAssets - totalLiabilities - investmentBookValue)
+  // but in practice book value of wrapper IS on the balance sheet at cost
+  let wrapperValue = params.investmentMarketValue;
+  let wrapperCostBasis = params.investmentBookValue;
+  let bookCash = (params.totalAssets - params.totalLiabilities) - params.investmentBookValue;
+  let distributable = params.distributableEquity;
   let cumulativeTax = 0, cumulativeDividend = 0, cumulativeCorpTax = 0;
+
   for (let y = 1; y <= params.simulationYears; y++) {
-    const realNA = bookNetAssets + unrealised;
-    // Investment return applies to real net assets
-    const investmentIncome = realNA * params.investmentReturnRate;
-    const expenses = params.companyExpenses;
-    // Only realised income is taxed at company level during normal operations
-    // Assume return is mostly unrealised (capital gains on investments)
-    // A portion may be realised (dividends/interest from investments) - approximate 30% realised
-    const realisedIncome = investmentIncome * 0.3;
-    const unrealisedIncome = investmentIncome * 0.7;
-    const taxableIncome = Math.max(0, realisedIncome - expenses);
-    const corpTax = taxableIncome * 0.20;
-    bookNetAssets += realisedIncome - expenses - corpTax;
-    unrealised += unrealisedIncome;
-    distributableRemaining += (realisedIncome - expenses - corpTax); // profit increases distributable equity
-    const realNAAfterProfit = bookNetAssets + unrealised;
-    // Dividend limited by: shareholder's desired amount, distributable equity, real net assets
-    const maxDivCompany = Math.min(Math.max(0, distributableRemaining), Math.max(0, bookNetAssets));
-    const maxDiv = maxDivCompany * params.shareholderOwnership;
-    const dividend = Math.min(params.annualDividend, maxDiv);
-    const totalCompanyDividend = dividend / params.shareholderOwnership;
-    // For 8% rule, use real net assets (market value based - verottajan matemaattinen arvo)
-    const divResult = classifyDividend(dividend, realNAAfterProfit * params.shareholderOwnership, params.otherEarnedIncome, params.otherCapitalIncome);
-    bookNetAssets -= totalCompanyDividend;
-    distributableRemaining -= totalCompanyDividend;
-    const netAssetsEnd = bookNetAssets + unrealised;
-    cumulativeTax += divResult.totalTax + corpTax * params.shareholderOwnership;
-    cumulativeDividend += dividend;
-    cumulativeCorpTax += corpTax * params.shareholderOwnership;
-    years.push({ year: y, netAssetsStart: realNA, bookNetAssets: bookNetAssets, unrealised: unrealised, investmentIncome, corpTax, dividend, capitalDividend: divResult.capitalDividend, earnedDividend: divResult.earnedDividend, dividendTax: divResult.totalTax, capitalTax: divResult.capitalTax, earnedTax: divResult.earnedTax, netAssetsEnd, distributableRemaining, cumulativeTax, cumulativeDividend, cumulativeCorpTax, netReceived: dividend - divResult.totalTax, cumulativeNetReceived: cumulativeDividend - cumulativeTax + cumulativeCorpTax });
+    const r = runYearSimulation(wrapperValue, wrapperCostBasis, bookCash, distributable, params);
+    wrapperValue = r.wrapperValue; wrapperCostBasis = r.wrapperCostBasis;
+    bookCash = r.bookCash; distributable = r.distributable;
+
+    cumulativeTax += r.divResult.totalTax + r.corpTax * params.shareholderOwnership;
+    cumulativeDividend += r.dividend;
+    cumulativeCorpTax += r.corpTax * params.shareholderOwnership;
+
+    years.push({
+      year: y, netAssetsStart: r.realNAStart, netAssetsEnd: r.realNAEnd,
+      wrapperValue: wrapperValue, bookCash: bookCash,
+      investmentIncome: r.investmentReturn, corpTax: r.corpTax,
+      realisedGain: r.realisedGain,
+      dividend: r.dividend,
+      capitalDividend: r.divResult.capitalDividend, earnedDividend: r.divResult.earnedDividend,
+      dividendTax: r.divResult.totalTax, capitalTax: r.divResult.capitalTax, earnedTax: r.divResult.earnedTax,
+      distributableRemaining: distributable,
+      cumulativeTax, cumulativeDividend, cumulativeCorpTax,
+      netReceived: r.dividend - r.divResult.totalTax,
+      cumulativeNetReceived: cumulativeDividend - cumulativeTax + cumulativeCorpTax
+    });
   }
   return years;
 }
 
 function simulateLiquidation(params, atYear) {
-  const initUnrealised = params.investmentMarketValue - params.investmentBookValue;
-  let bookNetAssets = params.totalAssets - params.totalLiabilities;
-  let unrealised = initUnrealised;
-  let distributableRemaining = params.distributableEquity;
-  let totalCorpTax = 0;
-  let totalDividendsPaid = 0;
-  let totalDividendTax = 0;
+  let wrapperValue = params.investmentMarketValue;
+  let wrapperCostBasis = params.investmentBookValue;
+  let bookCash = (params.totalAssets - params.totalLiabilities) - params.investmentBookValue;
+  let distributable = params.distributableEquity;
+  let totalCorpTax = 0, totalDividendsPaid = 0, totalDividendTax = 0;
+
   for (let y = 1; y <= atYear; y++) {
-    const realNA = bookNetAssets + unrealised;
-    const investmentIncome = realNA * params.investmentReturnRate;
-    const expenses = params.companyExpenses;
-    const realisedIncome = investmentIncome * 0.3;
-    const unrealisedIncome = investmentIncome * 0.7;
-    const taxableIncome = Math.max(0, realisedIncome - expenses);
-    const corpTax = taxableIncome * 0.20;
-    bookNetAssets += realisedIncome - expenses - corpTax;
-    unrealised += unrealisedIncome;
-    distributableRemaining += (realisedIncome - expenses - corpTax);
-    totalCorpTax += corpTax;
-    // Pay annual dividends (same logic as hybrid)
-    const realNANow = bookNetAssets + unrealised;
-    const maxDivCompany = Math.min(Math.max(0, distributableRemaining), Math.max(0, bookNetAssets));
-    const maxDiv = maxDivCompany * params.shareholderOwnership;
-    const div = Math.min(params.annualDividend, maxDiv);
-    const totalCompanyDiv = div / params.shareholderOwnership;
-    const divResult = classifyDividend(div, realNANow * params.shareholderOwnership, params.otherEarnedIncome, params.otherCapitalIncome);
-    bookNetAssets -= totalCompanyDiv;
-    distributableRemaining -= totalCompanyDiv;
-    totalDividendsPaid += div;
-    totalDividendTax += divResult.totalTax;
+    const r = runYearSimulation(wrapperValue, wrapperCostBasis, bookCash, distributable, params);
+    wrapperValue = r.wrapperValue; wrapperCostBasis = r.wrapperCostBasis;
+    bookCash = r.bookCash; distributable = r.distributable;
+    totalCorpTax += r.corpTax;
+    totalDividendsPaid += r.dividend;
+    totalDividendTax += r.divResult.totalTax;
   }
-  // On liquidation: unrealised gains are realised → company pays 20% corp tax
-  const corpTaxOnUnrealised = Math.max(0, unrealised) * 0.20;
-  totalCorpTax += corpTaxOnUnrealised;
-  const netAssetsAtLiquidation = bookNetAssets + unrealised - corpTaxOnUnrealised;
+
+  // On liquidation: withdraw everything from wrapper, realise all remaining gains
+  const unrealisedInWrapper = Math.max(0, wrapperValue - wrapperCostBasis);
+  const corpTaxOnLiquidation = unrealisedInWrapper * 0.20;
+  totalCorpTax += corpTaxOnLiquidation;
+  const netAssetsAtLiquidation = wrapperValue + bookCash - corpTaxOnLiquidation;
   const shareholderDistribution = netAssetsAtLiquidation * params.shareholderOwnership;
   const actualCost = params.originalPurchasePrice;
   const ownershipAtLiq = params.ownershipYears + atYear;
@@ -191,44 +238,42 @@ function simulateLiquidation(params, atYear) {
   const usePresumptive = gainPresumptive < gainActual;
   const selectedGain = usePresumptive ? gainPresumptive : gainActual;
   const tax = capitalIncomeTax(selectedGain + params.otherCapitalIncome) - capitalIncomeTax(params.otherCapitalIncome);
-  return { year: atYear, netAssetsAtLiquidation, shareholderDistribution, actualCost, presumptiveCost, gainActual, gainPresumptive, usePresumptive, selectedGain, tax, totalCorpTax: totalCorpTax * params.shareholderOwnership, corpTaxOnUnrealised: corpTaxOnUnrealised * params.shareholderOwnership, totalDividendsPaid, totalDividendTax, netReceived: shareholderDistribution - tax, totalNetReceived: (shareholderDistribution - tax) + (totalDividendsPaid - totalDividendTax), effectiveRate: (shareholderDistribution + totalDividendsPaid) > 0 ? (tax + totalDividendTax) / (shareholderDistribution + totalDividendsPaid) : 0 };
+
+  return {
+    year: atYear, netAssetsAtLiquidation, shareholderDistribution,
+    actualCost, presumptiveCost, gainActual, gainPresumptive, usePresumptive, selectedGain,
+    tax, totalCorpTax: totalCorpTax * params.shareholderOwnership,
+    corpTaxOnLiquidation: corpTaxOnLiquidation * params.shareholderOwnership,
+    totalDividendsPaid, totalDividendTax,
+    netReceived: shareholderDistribution - tax,
+    totalNetReceived: (shareholderDistribution - tax) + (totalDividendsPaid - totalDividendTax),
+    effectiveRate: (shareholderDistribution + totalDividendsPaid) > 0 ? (tax + totalDividendTax) / (shareholderDistribution + totalDividendsPaid) : 0
+  };
 }
 
 function simulateHybrid(params) {
   const results = [];
-  const initUnrealised = params.investmentMarketValue - params.investmentBookValue;
   for (let liqYear = 0; liqYear <= params.simulationYears; liqYear++) {
-    let bookNetAssets = params.totalAssets - params.totalLiabilities;
-    let unrealised = initUnrealised;
-    let distributableRemaining = params.distributableEquity;
+    let wrapperValue = params.investmentMarketValue;
+    let wrapperCostBasis = params.investmentBookValue;
+    let bookCash = (params.totalAssets - params.totalLiabilities) - params.investmentBookValue;
+    let distributable = params.distributableEquity;
     let totalPersonalTax = 0, totalCorpTax = 0, totalDividendsReceived = 0;
+
     for (let y = 1; y <= liqYear; y++) {
-      const realNA = bookNetAssets + unrealised;
-      const investmentIncome = realNA * params.investmentReturnRate;
-      const expenses = params.companyExpenses;
-      const realisedIncome = investmentIncome * 0.3;
-      const unrealisedIncome = investmentIncome * 0.7;
-      const taxableIncome = Math.max(0, realisedIncome - expenses);
-      const corpTax = taxableIncome * 0.20;
-      bookNetAssets += realisedIncome - expenses - corpTax;
-      unrealised += unrealisedIncome;
-      distributableRemaining += (realisedIncome - expenses - corpTax);
-      totalCorpTax += corpTax;
-      const realNANow = bookNetAssets + unrealised;
-      const maxDivCompany = Math.min(Math.max(0, distributableRemaining), Math.max(0, bookNetAssets));
-      const maxDiv = maxDivCompany * params.shareholderOwnership;
-      const div = Math.min(params.annualDividend, maxDiv);
-      const totalCompanyDiv = div / params.shareholderOwnership;
-      const divResult = classifyDividend(div, realNANow * params.shareholderOwnership, params.otherEarnedIncome, params.otherCapitalIncome);
-      bookNetAssets -= totalCompanyDiv;
-      distributableRemaining -= totalCompanyDiv;
-      totalPersonalTax += divResult.totalTax;
-      totalDividendsReceived += div;
+      const r = runYearSimulation(wrapperValue, wrapperCostBasis, bookCash, distributable, params);
+      wrapperValue = r.wrapperValue; wrapperCostBasis = r.wrapperCostBasis;
+      bookCash = r.bookCash; distributable = r.distributable;
+      totalCorpTax += r.corpTax;
+      totalPersonalTax += r.divResult.totalTax;
+      totalDividendsReceived += r.dividend;
     }
-    // Liquidation: realise unrealised gains
-    const corpTaxOnUnrealised = Math.max(0, unrealised) * 0.20;
-    totalCorpTax += corpTaxOnUnrealised;
-    const netAssetsAtLiq = bookNetAssets + unrealised - corpTaxOnUnrealised;
+
+    // Liquidation: realise all remaining wrapper gains
+    const unrealisedInWrapper = Math.max(0, wrapperValue - wrapperCostBasis);
+    const corpTaxOnLiquidation = unrealisedInWrapper * 0.20;
+    totalCorpTax += corpTaxOnLiquidation;
+    const netAssetsAtLiq = wrapperValue + bookCash - corpTaxOnLiquidation;
     const distribution = netAssetsAtLiq * params.shareholderOwnership;
     const ownershipAtLiq = params.ownershipYears + liqYear;
     const presumptiveRate = ownershipAtLiq >= 10 ? 0.40 : 0.20;
