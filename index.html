@@ -97,16 +97,19 @@ function earnedTaxSimple(total){
 }
 function incrEarnedTax(base,add){return Math.max(0,earnedTaxSimple(base+Math.max(0,add))-earnedTaxSimple(base))}
 
-// How much to withdraw from wrapper to get `needNet` cash after corp tax on realised gain
-function withdrawalForNet(needNet,mv,bv,corpRate){
-  if(needNet<=0)return{wd:0,gain:0,tax:0,ratio:mv>0?clamp((mv-bv)/mv,0,1):0};
-  if(mv<=0)return{wd:1e18,gain:0,tax:0,ratio:0};
-  const ratio=clamp((mv-bv)/mv,0,1);
+// How much to withdraw from wrapper to get `needNet` cash after corp tax.
+// `deductible` = vuoden vähennyskelpoiset kulut, jotka pienentävät verotettavaa realisoitunutta voittoa.
+function withdrawalForNet(needNet,mv,bv,corpRate,deductible){
+  deductible=Math.max(0,deductible||0);
+  const ratio=mv>0?clamp((mv-bv)/mv,0,1):0;
+  if(needNet<=0)return{wd:0,gain:0,tax:0,ratio};
+  if(mv<=0)return{wd:Infinity,gain:0,tax:0,ratio:0};
+  if(needNet*ratio<=deductible)return{wd:needNet,gain:needNet*ratio,tax:0,ratio};
   const denom=1-corpRate*ratio;
-  if(denom<=0)return{wd:1e18,gain:0,tax:0,ratio};
-  const wd=needNet/denom;
+  if(denom<=0)return{wd:Infinity,gain:0,tax:0,ratio};
+  const wd=(needNet-corpRate*deductible)/denom;
   const gain=wd*ratio;
-  return{wd,gain,tax:gain*corpRate,ratio};
+  return{wd,gain,tax:Math.max(0,(gain-deductible)*corpRate),ratio};
 }
 
 // Binary search: max dividend company can pay given state
@@ -115,7 +118,7 @@ function maxDividendPossible(mv,bv,distributable,liabilities,expenses,corpRate){
   for(let i=0;i<60;i++){
     const mid=(lo+hi)/2;
     const need=mid+expenses;
-    const w=withdrawalForNet(need,mv,bv,corpRate);
+    const w=withdrawalForNet(need,mv,bv,corpRate,expenses);
     const afterTaxGain=w.gain-w.tax;
     const endDistrib=distributable+afterTaxGain-expenses-mid;
     const endMv=mv-w.wd;
@@ -162,16 +165,28 @@ function simulate(inputs,liqYear){
   for(let y=1;y<=liqYear;y++){
     const startMv=state.mv;
     state.mv*=(1+inputs.returnRate);
-    const netAssetsBefore=state.mv-state.liab;
+    const mvAfterReturn=state.mv;
+    // 8 %:n huojennusraja perustuu edellisen tilikauden päättävän taseen nettovarallisuuteen
+    const netAssetsBefore=Math.max(0,startMv-state.liab);
     const maxDiv=maxDividendPossible(state.mv,state.bv,state.distrib,state.liab,inputs.expenses,cr);
-    const actualDiv=Math.min(inputs.annualDiv,maxDiv);
-    const need=actualDiv+inputs.expenses;
-    const w=withdrawalForNet(need,state.mv,state.bv,cr);
+    let actualDiv=Math.min(inputs.annualDiv,maxDiv);
+    let expensesPaid=inputs.expenses;
+    let w=withdrawalForNet(actualDiv+expensesPaid,state.mv,state.bv,cr,expensesPaid);
+    if(!isFinite(w.wd)||w.wd>state.mv+1e-6){
+      // Kuori ei riitä osinkoon ja kuluihin: nostetaan kaikki, kulut ensin, osinko jäännöksestä
+      const ratio=state.mv>0?clamp((state.mv-state.bv)/state.mv,0,1):0;
+      const gain=state.mv*ratio;
+      const tax=Math.max(0,(gain-inputs.expenses)*cr);
+      const netCash=Math.max(0,state.mv-tax);
+      expensesPaid=Math.min(inputs.expenses,netCash);
+      actualDiv=Math.max(0,Math.min(actualDiv,netCash-expensesPaid));
+      w={wd:Math.max(0,state.mv),gain,tax,ratio};
+    }
     const afterTaxGain=w.gain-w.tax;
     const bvBefore=state.bv;
-    state.mv-=w.wd;
-    state.bv=startMv*(1+inputs.returnRate)>0?bvBefore*(1-w.wd/(startMv*(1+inputs.returnRate))):0;
-    state.distrib+=afterTaxGain-inputs.expenses-actualDiv;
+    state.bv=mvAfterReturn>0?bvBefore*(1-w.wd/mvAfterReturn):0;
+    state.mv=Math.max(0,state.mv-w.wd);
+    state.distrib+=afterTaxGain-expensesPaid-actualDiv;
 
     const shRows=inputs.shareholders.map((sh,idx)=>{
       const sd=actualDiv*sh.ownership;
@@ -180,12 +195,12 @@ function simulate(inputs,liqYear){
       return{grossDiv:sd,...t};
     });
     const yearDivTax=shRows.reduce((s,r)=>s+r.totalTax,0);
-    totGrossDiv+=actualDiv;totDivTax+=yearDivTax;totCorpTax+=w.tax;totExpenses+=inputs.expenses;
+    totGrossDiv+=actualDiv;totDivTax+=yearDivTax;totCorpTax+=w.tax;totExpenses+=expensesPaid;
 
     yearly.push({
-      year:y,startMv,mvAfterReturn:startMv*(1+inputs.returnRate),
+      year:y,startMv,mvAfterReturn,
       withdrawal:w.wd,realisedGain:w.gain,corpTax:w.tax,gainRatio:w.ratio,
-      expenses:inputs.expenses,actualDiv,dividendTax:yearDivTax,
+      expenses:expensesPaid,actualDiv,dividendTax:yearDivTax,
       endMv:state.mv,endBv:state.bv,endNetAssets:state.mv-state.liab,
       distributable:state.distrib,shRows
     });
@@ -203,7 +218,9 @@ function simulate(inputs,liqYear){
   const liqShTax=shLiq.reduce((s,r)=>s+r.tax,0);
   const totalNet=totGrossDiv+liqPool-totDivTax-liqShTax;
   const effRate=(totGrossDiv+liqPool)>0?(totDivTax+liqShTax)/(totGrossDiv+liqPool):0;
-  const allInRate=(totGrossDiv+liqPool)>0?(totDivTax+liqShTax+totCorpTax)/(totGrossDiv+liqPool):0;
+  // All-in: kaikki verot suhteessa yhtiöstä ulos otettuun bruttoarvoon (sis. yhteisöveron osuus)
+  const grossAll=totGrossDiv+liqPool+totCorpTax;
+  const allInRate=grossAll>0?(totDivTax+liqShTax+totCorpTax)/grossAll:0;
 
   return{
     liqYear,yearly,
@@ -213,12 +230,18 @@ function simulate(inputs,liqYear){
   };
 }
 
+// Aikaisin vuosi, jota mikään myöhempi vuosi ei paranna yli 0,5 %-yks. (all-in vero).
+// Suffiksiminimi varmistaa, ettei myöhempää pudotusta (esim. HMO 20 % → 40 % 10 v kohdalla) ohiteta.
 function pickRecommendation(results){
-  if(!results.length)return results[0];
-  for(let i=0;i<results.length-1;i++){
-    if((results[i].effRate-results[i+1].effRate)<=0.005)return results[i];
+  if(!results.length)return null;
+  const TH=0.005,n=results.length;
+  const sufMin=new Array(n);
+  let m=Infinity;
+  for(let i=n-1;i>=0;i--){m=Math.min(m,results[i].allInRate);sufMin[i]=m}
+  for(let i=0;i<n;i++){
+    if(results[i].allInRate<=sufMin[i]+TH)return results[i];
   }
-  return results.reduce((a,b)=>a.effRate<=b.effRate?a:b);
+  return results[n-1];
 }
 
 // ═══════════════════════════════════════════
@@ -235,7 +258,19 @@ const DEFAULTS={
   sh2Own:50,sh2Cost:25000,sh2Earned:0,sh2Capital:0,sh2Years:12,
 };
 
-let P={...DEFAULTS};
+// Syötteet säilyvät vain käyttäjän omassa selaimessa (localStorage) — ei lähetetä mihinkään
+const STORAGE_KEY='vero-optimoija-v2';
+function loadParams(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');
+    const p={...DEFAULTS};
+    Object.keys(DEFAULTS).forEach(k=>{if(typeof saved[k]==='number'&&isFinite(saved[k]))p[k]=saved[k]});
+    return p;
+  }catch(e){return{...DEFAULTS}}
+}
+function saveParams(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(P))}catch(e){}}
+
+let P=loadParams();
 let activeTab='comparison';
 let results=[];
 let best=null;
@@ -255,12 +290,24 @@ function collectInputs(){
 }
 
 function recalc(){
+  saveParams();
   const inp=collectInputs();
   results=[];
   for(let y=0;y<=inp.years;y++)results.push(simulate(inp,y));
   best=pickRecommendation(results);
   bestNet=results.reduce((a,b)=>a.totalNet>=b.totalNet?a:b);
   render();
+  updateOwnNote();
+}
+
+function updateOwnNote(){
+  const el=document.getElementById('own-note');if(!el)return;
+  const sum=P.sh1Own+P.sh2Own;
+  if(Math.abs(sum-100)>0.01){
+    const s=sum||1;
+    el.textContent='⚠️ Omistusosuudet yhteensä '+sum+' % — laskenta käyttää suhteita '+(P.sh1Own/s*100).toFixed(1)+' % / '+(P.sh2Own/s*100).toFixed(1)+' %.';
+    el.style.display='block';
+  }else el.style.display='none';
 }
 
 function h(tag,attrs,...children){
@@ -322,12 +369,19 @@ function renderSidebar(){
     field('Omistusaika','sh2Years','v',1)
   );
 
+  sb.appendChild(h('div',{id:'own-note',style:{display:'none',margin:'-6px 0 14px',padding:'8px 11px',background:'rgba(240,160,48,.07)',border:'1px solid #4a3a1a',borderRadius:'8px',fontSize:'11px',color:'var(--orange)',lineHeight:'1.5'}}));
+
   sec('Osinko & sijoitus','💰',
     field('Vuosiosinko yhteensä','annualDiv','€',5000),
     field('Yhtiön vuosikulut','expenses','€',500),
     field('Sijoitustuotto','returnRate','%',0.5),
     field('Yhteisövero','corpRate','%',1),
     field('Simulointijakso','years','v',1)
+  );
+
+  sec('Tallennus','💾',
+    h('div',{style:{fontSize:'11px',color:'#5a8aaa',lineHeight:'1.5',marginBottom:'8px'}},'Syötetyt arvot tallennetaan automaattisesti vain tämän selaimen muistiin (localStorage), eikä niitä lähetetä mihinkään. Arvot ovat valmiina seuraavalla avauskerralla.'),
+    h('button',{class:'tab',style:{width:'100%'},onClick:()=>{try{localStorage.removeItem(STORAGE_KEY)}catch(e){}P={...DEFAULTS};renderSidebar();recalc()}},'Palauta oletusarvot')
   );
 }
 
@@ -366,7 +420,7 @@ function renderComparison(){
   const imm=results[0];
   m.appendChild(h('div',{class:'cards'},
     card('Välitön purkaminen',eur(imm.totalNet),'Vero: '+pct(imm.effRate),''),
-    card('Vero-optimaalinen purku',best.liqYear===0?'Heti':best.liqYear+'v','Eff. vero: '+pct(best.effRate)+' | Netto: '+eur(best.totalNet),'highlight'),
+    card('Vero-optimaalinen purku',best.liqYear===0?'Heti':best.liqYear+'v','All-in vero: '+pct(best.allInRate)+' | Netto: '+eur(best.totalNet),'highlight'),
     card('Paras nettosaanto',eur(bestNet.totalNet),bestNet.liqYear+'v osinkoa → purku | Vero: '+pct(bestNet.effRate),'blue')
   ));
 
@@ -394,25 +448,28 @@ function renderComparison(){
   const rec=h('div',{class:'rec'});
   rec.innerHTML='<strong style="color:#2ddc6f">★ Vero-optimaalinen purkuajankohta:</strong> '+
     (best.liqYear===0
-      ?'Veroprosentti ei enää laske merkittävästi — yhtiön voi purkaa heti. Eff. vero: '+pct(best.effRate)+', netto: '+eur(best.totalNet)+'.'
-      :'Jaa osinkoja '+best.liqYear+' vuotta ('+eur(P.annualDiv)+'/v), sitten purka yhtiö. Eff. vero: '+pct(best.effRate)+', netto: '+eur(best.totalNet)+'. Tämän jälkeen veroprosentti ei enää laske merkittävästi (<0,5 %-yks./v).');
+      ?'Yhtiön voi purkaa heti — mikään myöhempi purkuvuosi ei laskisi kokonaisveroastetta (sis. yhteisövero) yli 0,5 %-yksikköä enempää. All-in vero: '+pct(best.allInRate)+', netto: '+eur(best.totalNet)+'.'
+      :'Jaa osinkoja '+best.liqYear+' vuotta ('+eur(P.annualDiv)+'/v), sitten pura yhtiö. All-in vero: '+pct(best.allInRate)+', netto: '+eur(best.totalNet)+'. Mikään myöhempi purkuvuosi ei laskisi kokonaisveroastetta yli 0,5 %-yksikköä enempää.');
   if(bestNet.liqYear!==best.liqYear){
     rec.innerHTML+='<br><strong style="color:#4daeff">◆ Paras nettosaanto:</strong> '+bestNet.liqYear+'v osinkoa → purku. Netto: '+eur(bestNet.totalNet)+' ('+pct(bestNet.effRate)+'). Lisäodotus tuottaa '+eur(bestNet.totalNet-best.totalNet)+' enemmän.';
   }
   m.appendChild(rec);
 
-  m.appendChild(h('div',{class:'note'},'⚠️ Tämä laskelma on arvio eikä korvaa veroasiantuntijan neuvoja. Ansiotuloveron laskenta on yksinkertaistettu. Todellinen verotus riippuu kunnallisveroprosentista, vähennyksistä ja muista tekijöistä.'));
+  m.appendChild(h('div',{class:'note'},'⚠️ Tämä laskelma on arvio eikä korvaa veroasiantuntijan neuvoja. Yksinkertaistuksia: ansiotuloveron laskenta on likimääräinen (kunnallisveroprosenttia, vähennyksiä ja sairausvakuutusmaksua ei mallinneta tarkasti), yhtiön tappioita ei siirretä seuraaville vuosille, nettovarallisuutena käytetään kuoren takaisinostoarvoa edellisen tilikauden lopussa (varmista arvostusperuste verottajalta), ja eri vuosien rahavirrat lasketaan yhteen nimellisarvoisina ilman diskonttausta tai nostettujen osinkojen uudelleensijoitusta — pitkä odotus näyttää siksi edullisemmalta kuin se rahan aika-arvo huomioiden on.'));
 }
 
 function renderYearly(){
   const m=document.getElementById('main');m.innerHTML='';
-  if(!best||!best.yearly.length)return;
+  const scenario=(best&&best.yearly.length)?best:((bestNet&&bestNet.yearly.length)?bestNet:null);
+  if(!scenario){
+    m.appendChild(h('h2',{style:{fontSize:'15px',color:'#e0f0ff',marginBottom:'6px'}},'Osinkoerittely'));
+    m.appendChild(h('p',{style:{fontSize:'12px',color:'var(--muted)'}},'Suositus on välitön purkaminen, joten osinkovuosia ei ole. Kasvata simulointijaksoa tai muuta lähtöarvoja nähdäksesi vuosierittelyn.'));
+    return;
+  }
 
-  const scenario=best;
-  m.appendChild(h('h2',{style:{fontSize:'15px',color:'#e0f0ff',marginBottom:'6px'}},'Osinkoerittely — suositeltu skenaario ('+scenario.liqYear+'v)'));
+  m.appendChild(h('h2',{style:{fontSize:'15px',color:'#e0f0ff',marginBottom:'6px'}},'Osinkoerittely — '+(scenario===best?'vero-optimaalinen':'paras nettosaanto')+' skenaario ('+scenario.liqYear+'v)'));
   m.appendChild(h('p',{style:{fontSize:'12px',color:'var(--muted)',marginBottom:'14px'}},'Vuosittainen erittely osinkojen verotuksesta ja yhtiön tilanteesta.'));
 
-  const inp=collectInputs();
   m.appendChild(h('div',{class:'cards'},
     card('Todellinen nettovarallisuus',eur(P.marketValue-P.liabilities),'sis. realisoitumaton '+eur(P.marketValue-P.bookValue)),
     card('8% raja (osinko)',eur((P.marketValue-P.liabilities)*0.08)),
@@ -445,6 +502,7 @@ function renderYearly(){
     'Osingot yhteensä (brutto): '+eur(scenario.totGrossDiv)+'<br>'+
     'Osinkoverot: '+eur(scenario.totDivTax)+'<br>'+
     'Yhteisöverot (kuoren nostot): '+eur(scenario.totCorpTax-scenario.liqCorpTax)+'<br>'+
+    'Yhtiön kulut yhteensä: '+eur(scenario.totExpenses)+'<br>'+
     'Jäljellä olevan kuoren arvo: '+eur(scenario.yearly.length?scenario.yearly[scenario.yearly.length-1].endMv:P.marketValue);
   m.appendChild(s);
 }
@@ -456,8 +514,9 @@ function renderLiquidation(){
   m.appendChild(h('p',{style:{fontSize:'12px',color:'var(--muted)',marginBottom:'14px'}},'Osingot jaetaan vuosittain ennen purkua. Purkuhetkellä kuoren jäljellä oleva arvonnousu realisoituu.'));
 
   const oy=P.sh1Years;
+  const hmoSub=oy>=10?'Omistusaika: '+oy+'v':'Nyt '+oy+'v — 40 % purkuvuodesta '+Math.ceil(10-oy)+' alkaen';
   m.appendChild(h('div',{class:'cards'},
-    card('HMO',oy>=10?'40 %':'20 %','Omistusaika: '+oy+'v'),
+    card('HMO (os.1)',oy>=10?'40 %':'20 %',hmoSub),
     card('Hankintahinta os.1',eur(P.sh1Cost)),
     card('Hankintahinta os.2',eur(P.sh2Cost)),
     card('Realisoitumaton',eur(P.marketValue-P.bookValue))
