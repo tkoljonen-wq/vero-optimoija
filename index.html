@@ -164,10 +164,12 @@ function simulate(inputs,liqYear){
 
   for(let y=1;y<=liqYear;y++){
     const startMv=state.mv;
+    const startBv=state.bv;
     state.mv*=(1+inputs.returnRate);
     const mvAfterReturn=state.mv;
-    // 8 %:n huojennusraja perustuu edellisen tilikauden päättävän taseen nettovarallisuuteen
-    const netAssetsBefore=Math.max(0,startMv-state.liab);
+    // 8 %:n huojennusraja: edellisen tilikauden päättävän taseen nettovarallisuus.
+    // Kapitalisaatiosopimus arvostetaan nettovarallisuudessa hankintamenoon (kirjanpitoarvo), ei käypään arvoon.
+    const netAssetsBefore=Math.max(0,startBv-state.liab);
     const maxDiv=maxDividendPossible(state.mv,state.bv,state.distrib,state.liab,inputs.expenses,cr);
     let actualDiv=Math.min(inputs.annualDiv,maxDiv);
     let expensesPaid=inputs.expenses;
@@ -455,7 +457,7 @@ function renderComparison(){
   }
   m.appendChild(rec);
 
-  m.appendChild(h('div',{class:'note'},'⚠️ Tämä laskelma on arvio eikä korvaa veroasiantuntijan neuvoja. Yksinkertaistuksia: ansiotuloveron laskenta on likimääräinen (kunnallisveroprosenttia, vähennyksiä ja sairausvakuutusmaksua ei mallinneta tarkasti), yhtiön tappioita ei siirretä seuraaville vuosille, nettovarallisuutena käytetään kuoren takaisinostoarvoa edellisen tilikauden lopussa (varmista arvostusperuste verottajalta), ja eri vuosien rahavirrat lasketaan yhteen nimellisarvoisina ilman diskonttausta tai nostettujen osinkojen uudelleensijoitusta — pitkä odotus näyttää siksi edullisemmalta kuin se rahan aika-arvo huomioiden on.'));
+  m.appendChild(h('div',{class:'note'},'⚠️ Tämä laskelma on arvio eikä korvaa veroasiantuntijan neuvoja. Yksinkertaistuksia: ansiotuloveron laskenta on likimääräinen (kunnallisveroprosenttia, vähennyksiä ja sairausvakuutusmaksua ei mallinneta tarkasti), yhtiön tappioita ei siirretä seuraaville vuosille, nettovarallisuutena käytetään kuoren hankintamenoa (kirjanpitoarvoa) edellisen tilikauden lopussa, ja eri vuosien rahavirrat lasketaan yhteen nimellisarvoisina ilman diskonttausta tai nostettujen osinkojen uudelleensijoitusta — pitkä odotus näyttää siksi edullisemmalta kuin se rahan aika-arvo huomioiden on.'));
 }
 
 function renderYearly(){
@@ -472,7 +474,8 @@ function renderYearly(){
 
   m.appendChild(h('div',{class:'cards'},
     card('Todellinen nettovarallisuus',eur(P.marketValue-P.liabilities),'sis. realisoitumaton '+eur(P.marketValue-P.bookValue)),
-    card('8% raja (osinko)',eur((P.marketValue-P.liabilities)*0.08)),
+    card('Nettovarallisuus (verotus)',eur(P.bookValue-P.liabilities),'hankintameno − velat'),
+    card('8% raja (osinko)',eur(Math.max(0,P.bookValue-P.liabilities)*0.08)),
     card('Jakokelpoinen',eur(P.distributable)),
     card('Vuosiosinko',eur(P.annualDiv))
   ));
